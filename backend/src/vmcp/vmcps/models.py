@@ -965,15 +965,19 @@ class StatsFilterRequest(BaseModel):
         pass
 
 class LogEntry(BaseModel):
-    """Model for log entry."""
+    """Model for log entry - supports both vMCP stats and application logs."""
     
+    # Common fields
     timestamp: str = Field(..., description="Log timestamp")
-    method: str = Field(..., description="Method name")
-    agent_name: str = Field(..., description="Agent name")
-    agent_id: str = Field(..., description="Agent ID")
-    user_id: int = Field(..., description="User ID")
-    client_id: str = Field(..., description="Client ID")
-    operation_id: str = Field(..., description="Operation ID")
+    log_type: str = Field(..., description="Log type: 'stats' or 'application'")
+    
+    # vMCP Stats fields (for log_type='stats')
+    method: Optional[str] = Field(None, description="Method name")
+    agent_name: Optional[str] = Field(None, description="Agent name")
+    agent_id: Optional[str] = Field(None, description="Agent ID")
+    user_id: Optional[int] = Field(None, description="User ID")
+    client_id: Optional[str] = Field(None, description="Client ID")
+    operation_id: Optional[str] = Field(None, description="Operation ID")
     mcp_server: Optional[str] = Field(None, description="MCP server name")
     mcp_method: Optional[str] = Field(None, description="MCP method name")
     original_name: Optional[str] = Field(None, description="Original name")
@@ -985,6 +989,16 @@ class LogEntry(BaseModel):
     total_resources: Optional[int] = Field(None, description="Total resources count")
     total_resource_templates: Optional[int] = Field(None, description="Total resource templates count")
     total_prompts: Optional[int] = Field(None, description="Total prompts count")
+    success: Optional[bool] = Field(None, description="Operation success status")
+    error_message: Optional[str] = Field(None, description="Error message if failed")
+    duration_ms: Optional[int] = Field(None, description="Operation duration in milliseconds")
+    
+    # Application Log fields (for log_type='application')
+    level: Optional[str] = Field(None, description="Log level: DEBUG, INFO, WARNING, ERROR, CRITICAL")
+    logger_name: Optional[str] = Field(None, description="Logger name")
+    message: Optional[str] = Field(None, description="Log message")
+    traceback: Optional[str] = Field(None, description="Traceback if error")
+    log_metadata: Optional[Dict[str, Any]] = Field(None, description="Additional log metadata")
     
     class Config:
         pass
@@ -998,6 +1012,7 @@ class StatsSummary(BaseModel):
     total_tool_calls: int = Field(..., description="Total number of tool calls")
     total_resource_calls: int = Field(..., description="Total number of resource calls")
     total_prompt_calls: int = Field(..., description="Total number of prompt calls")
+    avg_tools_per_call: float = Field(..., description="Average tools per call: Sum(total_tools where method=='tool_call') / Count(rows where method=='tool_call')")
     unique_methods: List[str] = Field(..., description="List of unique methods")
     agent_breakdown: Dict[str, int] = Field(..., description="Agent breakdown")
     vmcp_breakdown: Dict[str, int] = Field(..., description="vMCP breakdown")
