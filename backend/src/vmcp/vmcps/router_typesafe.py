@@ -623,7 +623,7 @@ async def create_vmcp(
                     
                 except Exception as e:
                     logger.error(f"   ❌ Error processing servers for vMCP {vmcp_id}: {e}")
-                    logger.error(f"   ❌ Traceback: {traceback.format_exc()}")
+                    logger.debug(f"   ❌ Traceback: {traceback.format_exc()}")
                     # Continue without failing - VMCP is created, servers just couldn't be processed
         
         # Convert to type-safe response model
@@ -846,7 +846,7 @@ async def _process_servers_for_vmcp_import(
                 
             except Exception as e:
                 logger.error(f"   ❌ Error processing existing server {server_name}: {e}")
-                logger.error(f"   ❌ Traceback: {traceback.format_exc()}")
+                logger.debug(f"   ❌ Traceback: {traceback.format_exc()}")
                 # Add server with error status
                 server_copy = server_dict.copy()
                 server_copy['status'] = 'error'
@@ -974,7 +974,7 @@ async def _process_servers_for_vmcp_import(
                 
             except Exception as e:
                 logger.error(f"   ❌ Error creating server {server_name}: {e}")
-                logger.error(f"   ❌ Traceback: {traceback.format_exc()}")
+                logger.debug(f"   ❌ Traceback: {traceback.format_exc()}")
                 # Add server with error status
                 server_copy = server_dict.copy()
                 server_copy['status'] = 'error'
@@ -1198,7 +1198,7 @@ async def install_vmcp_from_remote(
             logger.info(f"   ✅ Saved processed vMCP to UserPublicVMCPRegistry")
         except Exception as e:
             logger.error(f"   ❌ Error saving vMCP to UserPublicVMCPRegistry: {e}")
-            logger.error(f"   ❌ Traceback: {traceback.format_exc()}")
+            logger.debug(f"   ❌ Traceback: {traceback.format_exc()}")
             # Don't fail the install - servers are processed, just log the error
         
         # Count server statuses
@@ -1440,11 +1440,11 @@ async def refresh_vmcp(
                         current_status = await client_manager.ping_server(mcp_server.server_id)
                         logger.info(f"   🔍 Server {mcp_server.name}: ping result = {current_status.value}")
                     except AuthenticationError as e:
-                        logger.error(f"   ❌ Traceback: {traceback.format_exc()}")
+                        logger.debug(f"   ❌ Traceback: {traceback.format_exc()}")
                         logger.debug(f"   ❌ Authentication error for server {mcp_server.name}: {e}")
                         current_status = MCPConnectionStatus.AUTH_REQUIRED
                     except Exception as e:
-                        logger.error(f"   ❌ Traceback: {traceback.format_exc()}")
+                        logger.debug(f"   ❌ Traceback: {traceback.format_exc()}")
                         logger.error(f"   ❌ Error pinging server {mcp_server.name}: {mcp_server.server_id}: {e}")
                         current_status = MCPConnectionStatus.UNKNOWN
 
@@ -1454,8 +1454,8 @@ async def refresh_vmcp(
                     try:
                         capabilities = await client_manager.discover_capabilities(mcp_server.server_id)
                     except Exception as e:
-                        logger.error(f"   ❌ Error discovering capabilities for server {mcp_server.name}: {mcp_server.server_id}: {e}")
-                        logger.error(f"   ❌ Traceback: {traceback.format_exc()}")
+                        logger.warning(f"   ❌ Error discovering capabilities for server {mcp_server.name}: {mcp_server.server_id}: {e}")
+                        logger.debug(f"   ❌ Traceback: {traceback.format_exc()}")
                         capabilities = None
 
                 
@@ -2572,8 +2572,8 @@ async def add_server_to_vmcp(
                     logger.debug(f"   ❌ Authentication error for server {mcp_server.server_id}: {e}")
                     current_status = MCPConnectionStatus.AUTH_REQUIRED
                 except Exception as e:
-                    logger.error(f"   ❌ Traceback: {traceback.format_exc()}")
-                    logger.error(f"   ❌ Error pinging server {mcp_server.server_id}: {e}")
+                    logger.debug(f"   ❌ Traceback: {traceback.format_exc()}")
+                    logger.debug(f"   ❌ Error pinging server {mcp_server.server_id}: {e}")
                     current_status = MCPConnectionStatus.UNKNOWN
 
                 mcp_server.status = current_status
@@ -2582,8 +2582,8 @@ async def add_server_to_vmcp(
                 try:
                     capabilities = await client_manager.discover_capabilities(mcp_server.server_id)
                 except Exception as e:
-                    logger.error(f"   ❌ Traceback: {traceback.format_exc()}")
-                    logger.error(f"   ❌ Error discovering capabilities for server {mcp_server.server_id}: {e}")
+                    logger.debug(f"   ❌ Traceback: {traceback.format_exc()}")
+                    logger.warning(f"   ❌ Error discovering capabilities for server {mcp_server.server_id}: {e}")
                     capabilities = None
 
                 if capabilities:
@@ -2628,7 +2628,7 @@ async def add_server_to_vmcp(
             else:
                 logger.warning(f"   ⚠️ Server {mcp_server.server_id}: no capabilities discovered")
         except Exception as e:
-            logger.error(f"   ❌ Traceback: {traceback.format_exc()}")
+            logger.debug(f"   ❌ Traceback: {traceback.format_exc()}")
             logger.error(f"   ❌ Error connecting to server {server_id}: {e}")
             # Continue without failing - server might be offline
 
