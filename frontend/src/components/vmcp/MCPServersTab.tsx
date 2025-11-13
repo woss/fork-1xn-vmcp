@@ -631,22 +631,22 @@ export default function MCPServersTab({
           />
             <div className="flex-1 min-w-0">
               <h4 className="font-medium text-foreground text-sm mb-1 truncate font-mono">{server.name}</h4>
-              <div className="flex items-center gap-2 mb-1">
+              {/* <div className="flex items-center gap-2 mb-1">
                 <Badge
                   variant={server.status === 'connected' ? 'default' :
-                    server.status === 'auth_required' ? 'secondary' :
+                    server.status === 'auth_required' ? 'destructive' :
                     server.status === 'error' ? 'destructive' : 'outline'}
                   className="text-xs"
                 >
                   <StatusIcon className="h-3 w-3 mr-1" />
                   {status.label}
                 </Badge>
-                {/* {isUsedInOtherVmcps && (
+                {isUsedInOtherVmcps && (
                   <Badge variant="secondary" className="text-xs text-amber-600">
                     Used in Other vMCPs
                   </Badge>
-                )} */}
-              </div>
+                )} 
+              </div> */}
               {server.description && (
                 <p className="text-xs text-muted-foreground leading-relaxed line-clamp-2">{server.description}</p>
               )}
@@ -703,7 +703,7 @@ export default function MCPServersTab({
                         <div className="flex items-center gap-2 mb-1">
                           <Badge
                             variant={server.status === 'connected' ? 'default' :
-                              server.status === 'auth_required' ? 'secondary' :
+                              server.status === 'auth_required' ? 'destructive' :
                               server.status === 'error' ? 'destructive' : 'outline'}
                             className="text-xs"
                           >

@@ -15,34 +15,26 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { 
-  Plus, 
   Server as ServerIcon,
   TestTube,
-  Edit,
   Trash2,
   Link as LinkIcon,
   AlertTriangle,
   CheckCircle,
   Activity,
   Terminal,
-  ExternalLink,
   RefreshCw,
-  Settings,
   Power,
   PowerOff,
   Globe,
   Wifi,
   WifiOff,
   Lock,
-  Unlock,
-  Search,
-  Clock,
   Container,
   Code,
   MessageSquare,
   FolderOpen,
   Database,
-  Trash,
   X,
   KeyRound
 } from 'lucide-react';
@@ -619,7 +611,7 @@ export default function ServersPage() {
   }
 
   return (
-    <TooltipProvider>
+    <div className="min-h-screen mx-auto p-4">
       <div className="min-h-screen">
         {/* Header */}
         <div className="mb-8">
@@ -630,7 +622,7 @@ export default function ServersPage() {
               </div>
               <div>
               <h1 className="text-3xl font-bold text-foreground">
-                MCP Servers
+                Server Connections
               </h1>
               <p className="text-muted-foreground">Manage your Model Context Protocol server connections</p>
               </div>
@@ -800,7 +792,7 @@ export default function ServersPage() {
                             <div className="flex items-center gap-2 mb-1">
                               <Badge
                                 variant={server.status === 'connected' ? 'default' :
-                                  server.status === 'auth_required' ? 'secondary' :
+                                  server.status === 'auth_required' ? 'destructive' :
                                   server.status === 'error' ? 'destructive' : 'outline'}
                                 className="text-xs"
                               >
@@ -1092,6 +1084,6 @@ export default function ServersPage() {
           </div>
         </div>
       )}
-    </TooltipProvider>
+    </div>
   );
 } 

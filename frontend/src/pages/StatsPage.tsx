@@ -158,11 +158,11 @@ export default function StatsPage() {
     timestamp: true,
     method: true,
     vmcp: true,
-    mcpServer: true,
-    operationId: true,
+    mcpServer: false,
+    operationId: false,
     arguments: true,
     result: true,
-    activeConfig: true
+    activeConfig: false
   });
 
   // Section collapse states
@@ -310,21 +310,21 @@ export default function StatsPage() {
     }));
   };
 
-  const scrollTable = (direction: 'left' | 'right') => {
-    const tableContainer = document.getElementById('logs-table-container');
-    if (tableContainer) {
-      const scrollAmount = 300; // pixels to scroll
-      const currentScroll = tableContainer.scrollLeft;
-      const newPosition = direction === 'left' 
-        ? Math.max(0, currentScroll - scrollAmount)
-        : currentScroll + scrollAmount;
+  // const scrollTable = (direction: 'left' | 'right') => {
+  //   const tableContainer = document.getElementById('logs-table-container');
+  //   if (tableContainer) {
+  //     const scrollAmount = 300; // pixels to scroll
+  //     const currentScroll = tableContainer.scrollLeft;
+  //     const newPosition = direction === 'left' 
+  //       ? Math.max(0, currentScroll - scrollAmount)
+  //       : currentScroll + scrollAmount;
       
-      tableContainer.scrollTo({
-        left: newPosition,
-        behavior: 'smooth'
-      });
-    }
-  };
+  //     tableContainer.scrollTo({
+  //       left: newPosition,
+  //       behavior: 'smooth'
+  //     });
+  //   }
+  // };
 
   const columnConfig = [
     { key: 'index', label: '#' },
@@ -353,17 +353,17 @@ export default function StatsPage() {
   return (
     <div className="min-h-screen mx-auto p-4">
       {/* Header */}
-      <div className="mb-6">
+      <div className="mb-8">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-lg bg-primary/20 flex items-center justify-center">
-              <ChartBar className="h-6 w-6 text-primary" />
+            <div className="h-12 w-12 rounded-lg bg-primary/20 flex items-center justify-center">
+              <ChartBar className="h-8 w-8 text-primary" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold text-foreground">
+              <h1 className="text-3xl font-bold text-foreground">
                 Statistics
               </h1>
-              <p className="text-sm text-muted-foreground">Comprehensive analytics and logs overview</p>
+              <p className="text-muted-foreground">MCP analytics and logs</p>
             </div>
           </div>
           <div className="flex items-center gap-3">
@@ -382,7 +382,7 @@ export default function StatsPage() {
 
         {/* Statistics Cards */}
         {statsData && (
-          <div className="grid grid-cols-2 lg:grid-cols-5 gap-2 mb-4">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2 mb-4">
             <Card>
               <CardContent className="p-3">
                 <div className="flex items-center gap-2">
@@ -595,62 +595,58 @@ export default function StatsPage() {
           <CardContent>
             <div className="w-full overflow-hidden">
               {/* Fixed Header */}
-              <div className="sticky top-0 bg-background z-30 border-b border-border">
                 <Table className="min-w-full">
                   <TableHeader>
                     <TableRow className="border-border">
                       {columnVisibility.index && (
-                        <TableHead className="text-muted-foreground w-[2%] bg-background">#</TableHead>
+                        <TableHead className="text-muted-foreground bg-background max-w-[10px]">#</TableHead>
                       )}
                       {columnVisibility.client && (
-                        <TableHead className="text-muted-foreground w-[8%] bg-background">Client</TableHead>
+                        <TableHead className="text-muted-foreground  bg-background">Client</TableHead>
                       )}
                       {columnVisibility.timestamp && (
-                        <TableHead className="text-muted-foreground w-[12%] bg-background">Timestamp</TableHead>
+                        <TableHead className="text-muted-foreground bg-background">Timestamp</TableHead>
                       )}
                       {columnVisibility.method && (
-                        <TableHead className="text-muted-foreground w-[10%] bg-background">Method</TableHead>
+                        <TableHead className="text-muted-foreground bg-background">Method</TableHead>
                       )}
                       {columnVisibility.vmcp && (
-                        <TableHead className="text-muted-foreground w-[12%] bg-background">vMCP</TableHead>
+                        <TableHead className="text-muted-foreground  bg-background">vMCP</TableHead>
                       )}
                       {columnVisibility.mcpServer && (
-                        <TableHead className="text-muted-foreground w-[10%] bg-background">MCP Server</TableHead>
+                        <TableHead className="text-muted-foreground bg-background">MCP Server</TableHead>
                       )}
                       {columnVisibility.operationId && (
-                        <TableHead className="text-muted-foreground w-[13%] bg-background">Operation ID</TableHead>
+                        <TableHead className="text-muted-foreground  bg-background">Operation ID</TableHead>
                       )}
                       {columnVisibility.arguments && (
-                        <TableHead className="text-muted-foreground w-[15%] bg-background">Arguments</TableHead>
+                        <TableHead className="text-muted-foreground bg-background flex-2">Arguments</TableHead>
                       )}
                       {columnVisibility.result && (
-                        <TableHead className="text-muted-foreground w-[15%] bg-background">Result</TableHead>
+                        <TableHead className="text-muted-foreground  bg-background flex-1">Result</TableHead>
                       )}
                       {columnVisibility.activeConfig && (
-                        <TableHead className="text-muted-foreground w-[10%] bg-background">Active Config</TableHead>
+                        <TableHead className="text-muted-foreground bg-background">Active Config</TableHead>
                       )}
                     </TableRow>
                   </TableHeader>
-                </Table>
-              </div>
               
               {/* Scrollable Body */}
-              <div 
+              {/* <div 
                 id="logs-table-container"
                 className="h-[700px] overflow-auto"
-              >
-                <Table className="min-w-full">
+              > */}
                   <TableBody>
                     {statsData && statsData.logs && statsData.logs.length > 0 ? (
                       statsData.logs.map((log, index) => (
                         <TableRow key={index} className="border-border hover:bg-muted/50">
                           {columnVisibility.index && (
-                            <TableCell className="text-foreground font-medium text-center w-[5%]">
+                            <TableCell className="text-foreground font-medium text-center max-w-[10px] text-truncate">
                               {((currentPage - 1) * logsLimit) + index + 1}
                             </TableCell>
                           )}
                           {columnVisibility.client && (
-                            <TableCell className="text-foreground w-[8%]">
+                            <TableCell className="text-foreground ">
                               <div className="flex items-center space-x-2">
                                 {getAgentIcon(log.agent_name)}
                                 <span className="text-sm font-medium truncate">
@@ -660,26 +656,25 @@ export default function StatsPage() {
                             </TableCell>
                           )}
                           {columnVisibility.timestamp && (
-                            <TableCell className="text-foreground w-[12%]">
+                            <TableCell className="text-foreground">
                               <div className="flex items-center space-x-1">
-                                <Clock className="h-3 w-3 text-muted-foreground" />
-                                <span className="text-sm truncate">{formatDate(log.timestamp)}</span>
+                                <span className="text-xs truncate">{formatDate(log.timestamp)}</span>
                               </div>
                             </TableCell>
                           )}
                           {columnVisibility.method && (
-                            <TableCell className="text-foreground w-[10%]">
+                            <TableCell className="text-foreground">
                               <Badge className={`text-xs ${getMethodColor(log.method)}`}>
                                 {log.method}
                               </Badge>
                             </TableCell>
                           )}
                           {columnVisibility.vmcp && (
-                            <TableCell className="text-foreground w-[12%]">
+                            <TableCell className="text-foreground">
                               <div className="truncate">
                                 {log.vmcp_name ? (
                                   <div className="flex items-center space-x-2">
-                                    <Server className="h-3 w-3 text-primary flex-shrink-0" />
+                                    <Server className="h-3 w-3 text-primary" />
                                     <span className="text-sm font-mono truncate">
                                       {log.vmcp_name}
                                     </span>
@@ -691,7 +686,7 @@ export default function StatsPage() {
                             </TableCell>
                           )}
                           {columnVisibility.mcpServer && (
-                            <TableCell className="text-foreground w-[10%]">
+                            <TableCell className="text-foreground">
                               <div className="truncate">
                                 {log.mcp_server ? (
                                   <Badge variant="secondary" className="bg-muted text-foreground truncate max-w-full">
@@ -704,19 +699,19 @@ export default function StatsPage() {
                             </TableCell>
                           )}
                           {columnVisibility.operationId && (
-                            <TableCell className="text-foreground w-[13%]">
+                            <TableCell className="text-foreground">
                               <span className="text-sm font-mono truncate block">
                                 {log.operation_id || 'N/A'}
                               </span>
                             </TableCell>
                           )}
                           {columnVisibility.arguments && (
-                            <TableCell className="text-foreground w-[15%]">
+                            <TableCell className="text-foreground">
                               <div className="truncate">
                                 {log.arguments ? (
                                   <CollapsibleJSON
                                     data={log.arguments}
-                                    label="Arguments"
+                                    label=""
                                     maxChars={100}
                                   />
                                 ) : (
@@ -726,7 +721,7 @@ export default function StatsPage() {
                             </TableCell>
                           )}
                           {columnVisibility.result && (
-                            <TableCell className="text-foreground w-[15%]">
+                            <TableCell className="text-foreground">
                               <div className="truncate">
                                 {log.result ? (
                                   <CollapsibleJSON
@@ -741,7 +736,7 @@ export default function StatsPage() {
                             </TableCell>
                           )}
                           {columnVisibility.activeConfig && (
-                            <TableCell className="text-foreground w-[10%]">
+                            <TableCell className="text-foreground">
                               <div className="text-xs text-muted-foreground space-y-1">
                                 <div>{log.total_tools || 0} tools</div>
                                 <div>{log.total_prompts || 0} prompts</div>
@@ -766,7 +761,7 @@ export default function StatsPage() {
                     )}
                   </TableBody>
                 </Table>
-              </div>
+              {/* </div> */}
             </div>
 
             {/* Pagination Controls */}
