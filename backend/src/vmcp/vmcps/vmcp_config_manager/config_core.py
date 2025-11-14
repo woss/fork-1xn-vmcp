@@ -846,7 +846,8 @@ class VMCPConfigManager:
             storage=self.storage,
             vmcp_id=self.vmcp_id,
             user_id=self.user_id,
-            mcp_config_manager=self.mcp_config_manager
+            mcp_config_manager=self.mcp_config_manager,
+            log_vmcp_operation=self.log_vmcp_operation
         )
 
     @trace_method("[VMCPConfigManager]: List Resources")
@@ -867,7 +868,8 @@ class VMCPConfigManager:
             storage=self.storage,
             vmcp_id=self.vmcp_id,
             user_id=self.user_id,
-            mcp_config_manager=self.mcp_config_manager
+            mcp_config_manager=self.mcp_config_manager,
+            log_vmcp_operation=self.log_vmcp_operation
         )
 
     @trace_method("[VMCPConfigManager]: List Resource Templates")
@@ -886,7 +888,8 @@ class VMCPConfigManager:
             storage=self.storage,
             vmcp_id=self.vmcp_id,
             user_id=self.user_id,
-            mcp_config_manager=self.mcp_config_manager
+            mcp_config_manager=self.mcp_config_manager,
+            log_vmcp_operation=self.log_vmcp_operation
         )
 
     @trace_method("[VMCPConfigManager]: List Prompts")
@@ -906,7 +909,8 @@ class VMCPConfigManager:
             storage=self.storage,
             vmcp_id=self.vmcp_id,
             user_id=self.user_id,
-            mcp_config_manager=self.mcp_config_manager
+            mcp_config_manager=self.mcp_config_manager,
+            log_vmcp_operation=self.log_vmcp_operation
         )
 
     # =========================================================================
