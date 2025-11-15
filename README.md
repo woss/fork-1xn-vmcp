@@ -2,14 +2,18 @@
 
 [![PyPI](https://img.shields.io/pypi/v/1xn-vmcp?style=flat-square)](https://pypi.org/project/1xn-vmcp/) [![Docs](https://img.shields.io/badge/docs-available-brightgreen?style=flat-square)](https://1xn.ai/docs/) [![1xn](https://img.shields.io/badge/1xn-Website-blue?logo=https%3A%2F%2F1xn.ai%2Fimg%2F1xn_logo.svg&style=flat-square)](https://1xn.ai)
 
-**Lego blocks for AI workflows and agents**
+**Lego for AI workflows and agents**: 
 An open-source tool for composing, customizing and extending multiple MCP servers into a single logical, virtual MCP server
 
-vMCP (virtual Model Context Protocol) is an AI configuration and management platform built on top of the [Model Context Protocol](https://modelcontextprotocol.io/docs/getting-started/intro). Built for fine grained context-engineering, connect vMCPs to your AI clients (Claude, Chatgpt, VSCode) or to your agents like any other remote MCP. 
+Built for fine grained context-engineering
+- Create vMCP, Add MCP servers and Fine-tune
+- Extend with your own prompts, tools and resources
+- Connect any client (Claude, ChatGPT, Cursor, VScode, custom agents) to the vMCP
+- Create multiple logical vMCPs based on your workflow and agent needs
 
-vMCP is both 
-- A specification that builds on and extends MCPs [vMCP.json](https://github.com/1xn-labs/1xn-vmcp/blob/main/backend/src/vmcp/data/1xndemo_config.json)
-- A platform to create and deploy vMCP Servers
+vMCP (virtual Model Context Protocol) is an AI configuration and management platform built on top of the [Model Context Protocol](https://modelcontextprotocol.io/docs/getting-started/intro). It is both :
+- A specification that builds on and extends MCPs: [vMCP.json](https://github.com/1xn-labs/1xn-vmcp/blob/main/backend/src/vmcp/data/1xndemo_config.json)
+- A platform to create and deploy vMCP Servers:
 
 <div align="center">
   <img src="https://raw.githubusercontent.com/1xn-labs/1xn-vmcp/main/.assets/img/vmcp-intro-screen.png" alt="1xn vMCP Platform" width="780"/>
@@ -19,7 +23,7 @@ vMCP is both
 
 The Model Context Protocol has unlocked incredible possibilities for AI integrations, but users and developers quickly hit limitations:
 - **Configuration Hell**: Managing MCP configs across multiple clients (Claude, ChatGPT, VSCode, Cursor, Gemini) is tedious
-- **Auth**: Each mcp client needs its own auth for all the MCPs. vMCPs gives a standard auth for all MCPs 
+- **Auth**: Each mcp client needs its own auth for all the MCPs
 - **Lack of Customization**: Can't modify or extend existing MCPs for specific workflow needs - "context rot / confusion"
 - **No Composition**: Building complex workflows requires piecing together multiple tools from multiple MCPs 
 
