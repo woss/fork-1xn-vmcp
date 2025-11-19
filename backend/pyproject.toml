@@ -73,6 +73,7 @@ dev = [
 [project.scripts]
 vmcp = "vmcp.cli.main:app"
 vmcp-postgres = "vmcp.scripts.postgres_setup:main"
+vmcp-sdk = "vmcp_sdk.cli.main:main"
 
 [project.urls]
 Homepage = "https://1xn.ai"
@@ -81,7 +82,7 @@ Repository = "https://github.com/1xn-labs/1xn-vmcp"
 Issues = "https://github.com/1xn-labs/1xn-vmcp/issues"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/vmcp", "mcp_server", "test_server"]
+packages = ["src/vmcp", "src/vmcp_sdk", "mcp_server", "test_server"]
 
 [tool.hatch.build.targets.wheel.force-include]
 "./public/frontend" = "vmcp/public/frontend"

@@ -1,0 +1,78 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "sandbox-runtime"
+version = "0.0.12"
+description = "Anthropic Sandbox Runtime (ASRT) - A general-purpose tool for wrapping security boundaries around arbitrary processes"
+readme = "README.md"
+requires-python = ">=3.11"
+license = {text = "Apache-2.0"}
+authors = [
+    {name = "Anthropic PBC"}
+]
+keywords = [
+    "sandbox",
+    "seatbelt",
+    "sandbox-exec",
+    "anthropic",
+    "claude",
+    "security",
+    "bubblewrap",
+    "network-filtering",
+    "filesystem-restrictions"
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
+
+dependencies = [
+    "pydantic>=2.0",
+    "click>=8.0",
+    "aiohttp>=3.9",
+    "mcp2py>=0.6.0",
+    "fastmcp>=2.13.1",
+    "dspy>=3.0.4",
+]
+
+[project.scripts]
+srt = "sandbox_runtime.cli:main"
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+    "pytest-asyncio>=0.21",
+    "mypy>=1.0",
+    "black>=23.0",
+    "ruff>=0.1.0",
+    "types-aiofiles",
+]
+
+[tool.setuptools]
+packages = ["sandbox_runtime", "sandbox_runtime.config", "sandbox_runtime.sandbox", "sandbox_runtime.network", "sandbox_runtime.utils"]
+
+[tool.black]
+line-length = 100
+target-version = ['py311']
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.mypy]
+python_version = "3.11"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = false
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+
