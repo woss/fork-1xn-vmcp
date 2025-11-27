@@ -380,7 +380,10 @@ class StorageBase:
                     logger.debug(f"Syncing uploaded_files from custom_resources for public vMCP {public_vmcp_id}")
                     vmcp_config.uploaded_files = vmcp_config.custom_resources.copy()
                 
-                logger.debug(f"Successfully loaded public vMCP config: {vmcp_config.name} (ID: {public_vmcp_id})")
+                # Inject sandbox tools and prompts if sandbox is enabled
+                vmcp_config = self._inject_sandbox_tools_and_prompts(vmcp_config, public_vmcp_id)
+                
+                logger.info(f"Successfully loaded public vMCP config: {vmcp_config.name} (ID: {public_vmcp_id})")
                 return vmcp_config
             else:
                 # For private vMCPs, load from user private vMCP registry (existing logic)
@@ -429,7 +432,12 @@ class StorageBase:
                     logger.debug(f"Syncing uploaded_files from custom_resources for vMCP {decoded_vmcp_id}")
                     config.uploaded_files = config.custom_resources.copy()
                 
-                logger.debug(f"Successfully loaded private vMCP config: {config.name} (ID: {decoded_vmcp_id})")
+
+                # Inject sandbox tools and prompts if sandbox is enabled
+                config = self._inject_sandbox_tools_and_prompts(config, decoded_vmcp_id)
+                
+                logger.info(f"Successfully loaded private vMCP config: {config.name} (ID: {decoded_vmcp_id})")
+
                 return config
 
         except Exception as e:
@@ -521,6 +529,81 @@ class StorageBase:
         except Exception as e:
             logger.error(f"Error loading server statuses for public vMCP {public_vmcp_id}: {e}")
             return None
+    
+    def _inject_sandbox_tools_and_prompts(self, vmcp_config: VMCPConfig, vmcp_id: str) -> VMCPConfig:
+        """
+        Inject sandbox tools and prompts into vMCP config if sandbox is enabled.
+        Always removes existing sandbox tools/prompts first, even if sandbox is disabled.
+        
+        Args:
+            vmcp_config: The vMCP config to modify
+            vmcp_id: The vMCP ID
+            
+        Returns:
+            Modified vMCP config with sandbox tools and prompts injected (if enabled)
+        """
+        try:
+            from vmcp.vmcps.sandbox_service import get_sandbox_service
+            sandbox_service = get_sandbox_service()
+            
+            # Get current custom tools and prompts
+            custom_tools = list(vmcp_config.custom_tools or [])
+            custom_prompts = list(vmcp_config.custom_prompts or [])
+            
+            # Always remove existing sandbox tools/prompts first (even if sandbox is disabled)
+            # This ensures that if sandbox was previously enabled and then disabled, 
+            # the tools are properly removed
+            sandbox_tool_names = {'execute_bash', 'execute_python'}
+            before_remove = len(custom_tools)
+            custom_tools = [
+                tool for tool in custom_tools
+                if (tool.get('name') if isinstance(tool, dict) else getattr(tool, 'name', None)) not in sandbox_tool_names
+            ]
+            removed_count = before_remove - len(custom_tools)
+            if removed_count > 0:
+                logger.debug(f"Removed {removed_count} existing sandbox tools for vMCP {vmcp_id}")
+            
+            # Remove sandbox prompt (by checking if it contains sandbox setup text)
+            before_prompt_remove = len(custom_prompts)
+            custom_prompts = [
+                prompt for prompt in custom_prompts
+                if 'SANDBOX ENVIRONMENT' not in prompt.get('text', '')
+            ]
+            if len(custom_prompts) < before_prompt_remove:
+                logger.debug(f"Removed sandbox setup prompt for vMCP {vmcp_id}")
+            
+            # Only inject sandbox tools/prompts if sandbox is enabled
+            if sandbox_service.is_enabled(vmcp_id, vmcp_config):
+                # Add sandbox tools
+                sandbox_tools = sandbox_service.get_sandbox_tools(vmcp_id)
+                # Filter out execute_python tool as requested
+                sandbox_tools = [t for t in sandbox_tools if t.get('name') != 'execute_python']
+                custom_tools.extend(sandbox_tools)
+                logger.debug(f"Injected {len(sandbox_tools)} sandbox tools for vMCP {vmcp_id}")
+                
+                # Add sandbox prompt
+                sandbox_prompt = {
+                    'name': 'sandbox_setup',
+                    'description': 'Setup prompt for sandboxed execution environment',
+                    'text': sandbox_service.get_sandbox_prompt(vmcp_id, vmcp_config),
+                    'variables': [],
+                    'environment_variables': [],
+                    'tool_calls': []
+                }
+                custom_prompts.append(sandbox_prompt)
+                logger.debug(f"Injected sandbox prompt for vMCP {vmcp_id}")
+            else:
+                logger.debug(f"Sandbox is disabled for vMCP {vmcp_id}, not injecting sandbox tools/prompts")
+            
+            # Update config
+            vmcp_config.custom_tools = custom_tools
+            vmcp_config.custom_prompts = custom_prompts
+            
+        except Exception as e:
+            logger.warning(f"Failed to inject sandbox tools and prompts for {vmcp_id}: {e}")
+            # Return original config on error
+        
+        return vmcp_config
 
     def list_vmcps(self) -> List[Dict[str, Any]]:
         """List all vMCP configurations for the user."""

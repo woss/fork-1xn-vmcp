@@ -171,6 +171,25 @@ async def tools_list(
     vmcp_selected_tool_overrides = vmcp_config.vmcp_config.get('selected_tool_overrides', {})
     all_tools = []
 
+    # Check if both sandbox and progressive discovery are enabled
+    # MCP tools should only be hidden when BOTH are enabled
+    metadata = getattr(vmcp_config, 'metadata', {}) or {}
+    sandbox_enabled = False
+    progressive_discovery_enabled = False
+    if isinstance(metadata, dict):
+        sandbox_enabled = metadata.get('sandbox_enabled', False) is True
+        progressive_discovery_enabled = metadata.get('progressive_discovery_enabled', False) is True
+
+    # Only hide MCP server tools if BOTH sandbox AND progressive discovery are enabled
+    # If sandbox is off, show MCP tools regardless of progressive discovery
+    # If sandbox is on but progressive discovery is off, show MCP tools
+    logger.debug(f"vMCP {vmcp_id}: sandbox_enabled={sandbox_enabled}, progressive_discovery_enabled={progressive_discovery_enabled}")
+    if sandbox_enabled and progressive_discovery_enabled:
+        logger.info(f"Sandbox and progressive discovery both enabled for vMCP {vmcp_id}, skipping MCP server tools")
+        vmcp_servers = []  # Skip all MCP server tools
+    else:
+        logger.debug(f"vMCP {vmcp_id}: Showing MCP server tools (sandbox={sandbox_enabled}, progressive_discovery={progressive_discovery_enabled})")
+
     # Process tools from each server
     for server in vmcp_servers:
         server_id = server.get('server_id')

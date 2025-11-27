@@ -81,7 +81,7 @@ Repository = "https://github.com/1xn-labs/1xn-vmcp"
 Issues = "https://github.com/1xn-labs/1xn-vmcp/issues"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/vmcp", "mcp_server", "test_server"]
+packages = ["src/vmcp", "src/vmcp_sdk", "src/sandbox-runtime-py", "mcp_server", "test_server"]
 
 [tool.hatch.build.targets.wheel.force-include]
 "./public/frontend" = "vmcp/public/frontend"

@@ -36,6 +36,7 @@ import PromptsTab from '@/components/vmcp/PromptsTab';
 import ToolsTab from '@/components/vmcp/ToolsTab';
 import ResourcesTab from '@/components/vmcp/ResourcesTab';
 import EnvironmentVariablesTab from '@/components/vmcp/EnvironmentVariablesTab';
+import SandboxTab from '@/components/vmcp/SandboxTab';
 
 export default function VMCPDetailPage() {
   const params = useParams();
@@ -76,24 +77,26 @@ export default function VMCPDetailPage() {
   const [showExtendDialog, setShowExtendDialog] = useState(false);
   const [extendName, setExtendName] = useState('');
   const [refreshing, setRefreshing] = useState(false);
+  const [sandboxEnabled, setSandboxEnabled] = useState(false);
+  const [progressiveDiscoveryEnabled, setProgressiveDiscoveryEnabled] = useState(false);
 
   // Header editing state (now in modal)
   const [showEditHeaderModal, setShowEditHeaderModal] = useState(false);
   const [editingName, setEditingName] = useState('');
   const [editingDescription, setEditingDescription] = useState('');
-  const [editingMetadata, setEditingMetadata] = useState<Array<{key: string, value: string}>>([]);
+  const [editingMetadata, setEditingMetadata] = useState<Array<{ key: string, value: string }>>([]);
 
   // Changes summary dialog state
   const [showChangesSummaryDialog, setShowChangesSummaryDialog] = useState(false);
   const [showDiscardConfirmDialog, setShowDiscardConfirmDialog] = useState(false);
-  
+
   // Check if vMCP has a name to determine display
   const hasVMCPName = vmcpConfig.name && vmcpConfig.name.trim() !== '';
 
   // Compute changes summary for the dialog
   const changesSummary = getChangesSummary();
   const hasChanges = changesSummary.updates.length > 0 || changesSummary.additions.length > 0 || changesSummary.deletions.length > 0;
-  
+
   // Check if this is a remote vMCP (from the public vMCPs tab)
   const decodedVmcpId = decodeURIComponent(vmcpId);
   const isRemoteVMCP = vmcps.public && vmcps.public.some(vmcp => {
@@ -101,7 +104,7 @@ export default function VMCPDetailPage() {
     console.log(`🔍 Comparing vMCP IDs: "${vmcp.id}" === "${decodedVmcpId}" = ${matches}`);
     return matches;
   });
-  
+
   // Debug logging
   console.log('🔍 Remote vMCP Debug Info:', {
     vmcpId,
@@ -125,7 +128,7 @@ export default function VMCPDetailPage() {
   const handleCopyUrl = async () => {
     const url = getVMCPUrl();
     if (!url) return;
-    
+
     try {
       await navigator.clipboard.writeText(url);
       setUrlCopied(true);
@@ -136,6 +139,42 @@ export default function VMCPDetailPage() {
       showError('Failed to copy URL to clipboard');
     }
   };
+
+  // Load sandbox and progressive discovery status for tab indicators
+  useEffect(() => {
+    if (isNewVMCP) {
+      setSandboxEnabled(false);
+      setProgressiveDiscoveryEnabled(false);
+      return;
+    }
+
+    const loadSandboxStatus = async () => {
+      try {
+        const accessToken = localStorage.getItem('access_token') || (import.meta.env.VITE_VMCP_OSS_BUILD === 'true' ? 'local-token' : undefined);
+        const result = await apiClient.getSandboxStatus(vmcpId, accessToken);
+        if (result.success && result.data) {
+          setSandboxEnabled(result.data.enabled);
+        }
+      } catch (error) {
+        console.error('Error loading sandbox status:', error);
+      }
+    };
+
+    const loadProgressiveDiscoveryStatus = async () => {
+      try {
+        const accessToken = localStorage.getItem('access_token') || (import.meta.env.VITE_VMCP_OSS_BUILD === 'true' ? 'local-token' : undefined);
+        const result = await apiClient.getProgressiveDiscoveryStatus(vmcpId, accessToken);
+        if (result.success && result.data) {
+          setProgressiveDiscoveryEnabled(result.data.enabled);
+        }
+      } catch (error) {
+        console.error('Error loading progressive discovery status:', error);
+      }
+    };
+
+    loadSandboxStatus();
+    loadProgressiveDiscoveryStatus();
+  }, [vmcpId, isNewVMCP]);
 
   // Server selection state - removed unused local state variables
   // The selections are now managed directly in vmcpConfig.vmcp_config
@@ -461,7 +500,7 @@ export default function VMCPDetailPage() {
       }
 
       const result = await apiClient.refreshVMCP(vmcpId, accessToken);
-      
+
       if (result.success) {
         showSuccess('vMCP refreshed successfully');
         // Reload the vMCP config to reflect the refreshed state
@@ -507,7 +546,7 @@ export default function VMCPDetailPage() {
             user_id: result.data.user_id,
             created_at: result.data.created_at || new Date().toISOString()
           };
-          
+
           setVmcpConfig(prev => ({
             ...prev,
             uploaded_files: [...prev.uploaded_files, newFile],
@@ -557,7 +596,8 @@ export default function VMCPDetailPage() {
       console.log('vmcpId', vmcpConfig.id);
       if (result.success && result.data) {
         console.log('result.data', result.data);
-        const updatedFile = { original_filename: result.data.original_name, 
+        const updatedFile = {
+          original_filename: result.data.original_name,
           original_name: result.data.original_name,
           filename: result.data.filename,
           resource_name: result.data.resource_name
@@ -585,12 +625,12 @@ export default function VMCPDetailPage() {
   const addEnvironmentVariable = () => {
     setVmcpConfig(prev => ({
       ...prev,
-      environment_variables: [...prev.environment_variables, { 
-        name: '', 
-        value: '', 
-        description: '', 
-        required: false, 
-        source: 'manual' 
+      environment_variables: [...prev.environment_variables, {
+        name: '',
+        value: '',
+        description: '',
+        required: false,
+        source: 'manual'
       }]
     }));
   };
@@ -675,7 +715,7 @@ export default function VMCPDetailPage() {
   };
 
   const updateMetadataField = (index: number, field: 'key' | 'value', value: string) => {
-    setEditingMetadata(prev => prev.map((item, i) => 
+    setEditingMetadata(prev => prev.map((item, i) =>
       i === index ? { ...item, [field]: value } : item
     ));
   };
@@ -683,7 +723,7 @@ export default function VMCPDetailPage() {
   // Function to get icon display
   const getIconDisplay = (iconValue: string) => {
     if (!iconValue) return null;
-    
+
     if (iconValue.startsWith('data:image/') || iconValue.startsWith('data:image/png') || iconValue.startsWith('data:image/jpeg')) {
       return <img src={iconValue} alt="Icon" className="h-6 w-6 rounded object-cover" />;
     } else if (iconValue.startsWith('http')) {
@@ -730,13 +770,13 @@ export default function VMCPDetailPage() {
       ...baseTool,
       tool_type: toolType,
       // For Python tools, add code field
-      ...(toolType === 'python' && { 
+      ...(toolType === 'python' && {
         code: '',
         imports: [],
         dependencies: []
       }),
       // For HTTP tools, add API configuration
-      ...(toolType === 'http' && { 
+      ...(toolType === 'http' && {
         api_config: {
           method: 'GET',
           url: '',
@@ -775,19 +815,19 @@ export default function VMCPDetailPage() {
   if (!user) return null;
 
   return (
-    <div className="min-h-screen text-foreground">
+    <div className="flex flex-col h-screen overflow-hidden text-foreground">
       {/* Header */}
-      <div className="mb-8">
+      <div className="flex-shrink-0 mb-8">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3 flex-1">
             <div className="h-12 w-12 rounded-xl bg-primary/20 flex items-center justify-center overflow-hidden">
               {vmcpConfig.metadata?.icon ? (
-                <img 
-                  src={vmcpConfig.metadata.icon.startsWith('data:') 
-                    ? vmcpConfig.metadata.icon 
-                    : vmcpConfig.metadata.icon.startsWith('http') 
-                      ? vmcpConfig.metadata.icon 
-                      : `data:image/png;base64,${vmcpConfig.metadata.icon}`} 
+                <img
+                  src={vmcpConfig.metadata.icon.startsWith('data:')
+                    ? vmcpConfig.metadata.icon
+                    : vmcpConfig.metadata.icon.startsWith('http')
+                      ? vmcpConfig.metadata.icon
+                      : `data:image/png;base64,${vmcpConfig.metadata.icon}`}
                   alt="VMCP Icon"
                   className="h-8 w-8 object-contain"
                   onError={(e) => {
@@ -936,74 +976,85 @@ export default function VMCPDetailPage() {
       )}
 
       {/* Tabs implementation */}
-      <Tabs defaultValue="mcp" className="min-h-[600px] p-4 bg-card rounded-2xl">
+      <Tabs defaultValue="mcp" className="flex flex-col flex-1 min-h-0 h-full p-4 bg-card rounded-2xl">
         <div className='flex pb-4'>
-        <TabsList className='mb-4'>
-          <TabsTrigger value="mcp">
-            MCP Servers
-            <Badge variant="outline" className="ml-auto text-xs">
-              {vmcpConfig.vmcp_config.selected_servers?.length || 0}
-            </Badge>
-          </TabsTrigger>
-          <TabsTrigger value="prompts">
-            Prompts
-            <Badge variant="outline" className="ml-auto text-xs">
-              {(vmcpConfig.custom_prompts?.length || 0) + Object.values(vmcpConfig.vmcp_config.selected_prompts || {}).reduce((total, prompts) => total + (Array.isArray(prompts) ? prompts.length : 0), 0)}
-            </Badge>
-          </TabsTrigger>
-          <TabsTrigger value="tools">Tools
-            <Badge variant="outline" className="ml-auto text-xs">
-              {(vmcpConfig.custom_tools?.length || 0) + Object.values(vmcpConfig.vmcp_config.selected_tools || {}).reduce((total, tools) => total + (Array.isArray(tools) ? tools.length : 0), 0)}
-            </Badge>
-          </TabsTrigger>
-          <TabsTrigger value="resources">Resources
-            <Badge variant="outline" className="ml-auto text-xs">
-              {(vmcpConfig.uploaded_files?.length || 0) + Object.values(vmcpConfig.vmcp_config.selected_resources || {}).reduce((total, resources) => total + (Array.isArray(resources) ? resources.length : 0), 0)}
-            </Badge>
-          </TabsTrigger>
-          <TabsTrigger value="env_vars">Config
-            <Badge variant="outline" className="ml-auto text-xs">
-              {vmcpConfig.environment_variables?.length || 0}
-            </Badge>
-          </TabsTrigger>
-          {/* <TabsTrigger value="system">System</TabsTrigger> */}
-        </TabsList>
-        <div className="flex-1 w-full rounded-2xl">
+          <TabsList className='mb-4'>
+            <TabsTrigger value="mcp">
+              MCP Servers
+              <Badge variant="outline" className="ml-auto text-xs">
+                {vmcpConfig.vmcp_config.selected_servers?.length || 0}
+              </Badge>
+            </TabsTrigger>
+            <TabsTrigger value="prompts">
+              Prompts
+              <Badge variant="outline" className="ml-auto text-xs">
+                {(vmcpConfig.custom_prompts?.length || 0) + Object.values(vmcpConfig.vmcp_config.selected_prompts || {}).reduce((total, prompts) => total + (Array.isArray(prompts) ? prompts.length : 0), 0)}
+              </Badge>
+            </TabsTrigger>
+            <TabsTrigger value="tools">Tools
+              <Badge variant="outline" className="ml-auto text-xs">
+                {(vmcpConfig.custom_tools?.length || 0) + Object.values(vmcpConfig.vmcp_config.selected_tools || {}).reduce((total, tools) => total + (Array.isArray(tools) ? tools.length : 0), 0)}
+              </Badge>
+            </TabsTrigger>
+            <TabsTrigger value="resources">Resources
+              <Badge variant="outline" className="ml-auto text-xs">
+                {(vmcpConfig.uploaded_files?.length || 0) + Object.values(vmcpConfig.vmcp_config.selected_resources || {}).reduce((total, resources) => total + (Array.isArray(resources) ? resources.length : 0), 0)}
+              </Badge>
+            </TabsTrigger>
+            <TabsTrigger value="env_vars">Config
+              <Badge variant="outline" className="ml-auto text-xs">
+                {vmcpConfig.environment_variables?.length || 0}
+              </Badge>
+            </TabsTrigger>
+            <TabsTrigger value="sandbox" className="flex items-center gap-2">
+              <span>Sandbox</span>
+              <div className="flex items-center gap-1">
+                <div className={`w-2 h-2 rounded-full ${sandboxEnabled ? 'bg-green-500' : 'bg-red-500'}`} />
+                {progressiveDiscoveryEnabled && (
+                  <div className="w-4 h-4 rounded-full border border-primary flex items-center justify-center">
+                    <span className="text-[10px] font-semibold text-primary">P</span>
+                  </div>
+                )}
+              </div>
+            </TabsTrigger>
+            {/* <TabsTrigger value="system">System</TabsTrigger> */}
+          </TabsList>
+          <div className="flex-1 w-full rounded-2xl">
             {!isNewVMCP && getVMCPUrl() && (
-                <div className="flex w-fit pr-2 justify-self-end items-center gap-3 bg-muted rounded-2xl">
-                  <span className="text-sm bg-background p-2 rounded-l-2xl">
-                    vMCP url
-                  </span>
-                  <span className="text-sm text-muted-foreground font-mono max-w-5xl truncate">
-                    {getVMCPUrl()}
-                  </span>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={handleCopyUrl}
-                    className="h-6 w-6 p-0 hover:bg-muted-foreground/20"
-                    title="Copy URL to clipboard"
-                  >
-                    {urlCopied ? (
-                      <Check className="h-3 w-3 text-green-600" />
-                    ) : (
-                      <Copy className="h-3 w-3" />
-                    )}
-                  </Button>
-                </div>
-              )}
+              <div className="flex w-fit pr-2 justify-self-end items-center gap-3 bg-muted rounded-2xl">
+                <span className="text-sm bg-background p-2 rounded-l-2xl">
+                  vMCP url
+                </span>
+                <span className="text-sm text-muted-foreground font-mono max-w-5xl truncate">
+                  {getVMCPUrl()}
+                </span>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={handleCopyUrl}
+                  className="h-6 w-6 p-0 hover:bg-muted-foreground/20"
+                  title="Copy URL to clipboard"
+                >
+                  {urlCopied ? (
+                    <Check className="h-3 w-3 text-green-600" />
+                  ) : (
+                    <Copy className="h-3 w-3" />
+                  )}
+                </Button>
+              </div>
+            )}
           </div>
         </div>
-        <TabsContent value="system">
+        <TabsContent value="system" className="flex-1 overflow-y-auto min-h-0">
           <SystemTab
             vmcpConfig={vmcpConfig}
-            setVmcpConfig={setVmcpConfig} 
+            setVmcpConfig={setVmcpConfig}
             updateEnvironmentVariable={updateEnvironmentVariable}
             isRemoteVMCP={isRemoteVMCP}
           />
         </TabsContent>
 
-        <TabsContent value="mcp">
+        <TabsContent value="mcp" className="flex-1 overflow-y-auto min-h-0">
           <MCPServersTab
             vmcpConfig={vmcpConfig}
             setVmcpConfig={setVmcpConfig}
@@ -1013,7 +1064,7 @@ export default function VMCPDetailPage() {
           />
         </TabsContent>
 
-        <TabsContent value="prompts">
+        <TabsContent value="prompts" className="flex-1 overflow-y-auto min-h-0">
           <PromptsTab
             vmcpConfig={vmcpConfig}
             servers={servers}
@@ -1024,7 +1075,7 @@ export default function VMCPDetailPage() {
           />
         </TabsContent>
 
-        <TabsContent value="tools">
+        <TabsContent value="tools" className="flex-1 overflow-y-auto min-h-0">
           <ToolsTab
             vmcpConfig={vmcpConfig}
             servers={servers}
@@ -1038,7 +1089,7 @@ export default function VMCPDetailPage() {
           />
         </TabsContent>
 
-        <TabsContent value="resources">
+        <TabsContent value="resources" className="flex-1 overflow-y-auto min-h-0">
           <ResourcesTab
             vmcpConfig={vmcpConfig}
             servers={servers}
@@ -1059,7 +1110,7 @@ export default function VMCPDetailPage() {
           />
         </TabsContent>
 
-        <TabsContent value="env_vars">
+        <TabsContent value="env_vars" className="flex-1 overflow-y-auto min-h-0">
           <EnvironmentVariablesTab
             vmcpConfig={vmcpConfig}
             isRemoteVMCP={isRemoteVMCP}
@@ -1067,6 +1118,16 @@ export default function VMCPDetailPage() {
             removeEnvironmentVariable={removeEnvironmentVariable}
             updateEnvironmentVariable={updateEnvironmentVariable}
             setVmcpConfig={setVmcpConfig}
+          />
+        </TabsContent>
+
+        <TabsContent value="sandbox" className="flex-1 min-h-0 h-full max-h-full overflow-hidden">
+          <SandboxTab
+            vmcpConfig={vmcpConfig}
+            vmcpId={vmcpId}
+            isRemoteVMCP={isRemoteVMCP}
+            onSandboxStatusChange={setSandboxEnabled}
+            onProgressiveDiscoveryStatusChange={setProgressiveDiscoveryEnabled}
           />
         </TabsContent>
       </Tabs>
@@ -1235,76 +1296,76 @@ export default function VMCPDetailPage() {
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 max-h-96 overflow-y-auto py-4">
-                {!hasChanges ? (
-                  <div className="text-center py-8 text-muted-foreground">
-                    No changes detected
+            {!hasChanges ? (
+              <div className="text-center py-8 text-muted-foreground">
+                No changes detected
+              </div>
+            ) : (
+              <>
+                {changesSummary.updates.length > 0 && (
+                  <div className="border border-border rounded-lg p-4 bg-blue-500/5">
+                    <div className="flex items-center gap-2 mb-3">
+                      <div className="h-6 w-6 rounded-full bg-blue-500/20 flex items-center justify-center">
+                        <span className="text-xs font-semibold text-blue-600 dark:text-blue-400">^</span>
+                      </div>
+                      <h4 className="font-semibold text-sm text-foreground">
+                        Updates ({changesSummary.updates.length})
+                      </h4>
+                    </div>
+                    <ul className="space-y-1.5 ml-8">
+                      {changesSummary.updates.map((item, index) => (
+                        <li key={index} className="text-sm text-muted-foreground flex items-start gap-2">
+                          <span className="text-blue-500">•</span>
+                          <span>{item}</span>
+                        </li>
+                      ))}
+                    </ul>
                   </div>
-                ) : (
-                  <>
-                    {changesSummary.updates.length > 0 && (
-                      <div className="border border-border rounded-lg p-4 bg-blue-500/5">
-                        <div className="flex items-center gap-2 mb-3">
-                          <div className="h-6 w-6 rounded-full bg-blue-500/20 flex items-center justify-center">
-                            <span className="text-xs font-semibold text-blue-600 dark:text-blue-400">^</span>
-                          </div>
-                          <h4 className="font-semibold text-sm text-foreground">
-                            Updates ({changesSummary.updates.length})
-                          </h4>
-                        </div>
-                        <ul className="space-y-1.5 ml-8">
-                          {changesSummary.updates.map((item, index) => (
-                            <li key={index} className="text-sm text-muted-foreground flex items-start gap-2">
-                              <span className="text-blue-500">•</span>
-                              <span>{item}</span>
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
-
-                    {changesSummary.additions.length > 0 && (
-                      <div className="border border-border rounded-lg p-4 bg-green-500/5">
-                        <div className="flex items-center gap-2 mb-3">
-                          <div className="h-6 w-6 rounded-full bg-green-500/20 flex items-center justify-center">
-                            <span className="text-xs font-semibold text-green-600 dark:text-green-400">+</span>
-                          </div>
-                          <h4 className="font-semibold text-sm text-foreground">
-                            Additions ({changesSummary.additions.length})
-                          </h4>
-                        </div>
-                        <ul className="space-y-1.5 ml-8">
-                          {changesSummary.additions.map((item, index) => (
-                            <li key={index} className="text-sm text-muted-foreground flex items-start gap-2">
-                              <span className="text-green-500">•</span>
-                              <span>{item}</span>
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
-
-                    {changesSummary.deletions.length > 0 && (
-                      <div className="border border-border rounded-lg p-4 bg-red-500/5">
-                        <div className="flex items-center gap-2 mb-3">
-                          <div className="h-6 w-6 rounded-full bg-red-500/20 flex items-center justify-center">
-                            <span className="text-xs font-semibold text-red-600 dark:text-red-400">−</span>
-                          </div>
-                          <h4 className="font-semibold text-sm text-foreground">
-                            Deletions ({changesSummary.deletions.length})
-                          </h4>
-                        </div>
-                        <ul className="space-y-1.5 ml-8">
-                          {changesSummary.deletions.map((item, index) => (
-                            <li key={index} className="text-sm text-muted-foreground flex items-start gap-2">
-                              <span className="text-red-500">•</span>
-                              <span>{item}</span>
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
-                  </>
                 )}
+
+                {changesSummary.additions.length > 0 && (
+                  <div className="border border-border rounded-lg p-4 bg-green-500/5">
+                    <div className="flex items-center gap-2 mb-3">
+                      <div className="h-6 w-6 rounded-full bg-green-500/20 flex items-center justify-center">
+                        <span className="text-xs font-semibold text-green-600 dark:text-green-400">+</span>
+                      </div>
+                      <h4 className="font-semibold text-sm text-foreground">
+                        Additions ({changesSummary.additions.length})
+                      </h4>
+                    </div>
+                    <ul className="space-y-1.5 ml-8">
+                      {changesSummary.additions.map((item, index) => (
+                        <li key={index} className="text-sm text-muted-foreground flex items-start gap-2">
+                          <span className="text-green-500">•</span>
+                          <span>{item}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {changesSummary.deletions.length > 0 && (
+                  <div className="border border-border rounded-lg p-4 bg-red-500/5">
+                    <div className="flex items-center gap-2 mb-3">
+                      <div className="h-6 w-6 rounded-full bg-red-500/20 flex items-center justify-center">
+                        <span className="text-xs font-semibold text-red-600 dark:text-red-400">−</span>
+                      </div>
+                      <h4 className="font-semibold text-sm text-foreground">
+                        Deletions ({changesSummary.deletions.length})
+                      </h4>
+                    </div>
+                    <ul className="space-y-1.5 ml-8">
+                      {changesSummary.deletions.map((item, index) => (
+                        <li key={index} className="text-sm text-muted-foreground flex items-start gap-2">
+                          <span className="text-red-500">•</span>
+                          <span>{item}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </>
+            )}
           </div>
           <DialogFooter className="flex-row justify-end gap-2">
             <Button
