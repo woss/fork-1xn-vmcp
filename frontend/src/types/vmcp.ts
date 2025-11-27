@@ -239,3 +239,12 @@ export interface ServerStatusDisplay {
   icon: any;
   bgColor: string;
 }
+
+export interface FileNode {
+  name: string;
+  path: string;
+  type: 'file' | 'directory';
+  children?: FileNode[];
+  size?: number;
+  modified?: string;
+}

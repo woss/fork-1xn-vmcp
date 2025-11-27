@@ -26,6 +26,8 @@ from vmcp.utilities.logging import get_logger
 from vmcp.utilities.tracing import add_tracing_middleware
 from vmcp.vmcps.router_typesafe import router as vmcp_router
 from vmcp.vmcps.stats_router import router as stats_router
+from vmcp.vmcps.sandbox_router import router as sandbox_router
+from vmcp.vmcps.progressive_discovery_router import router as progressive_discovery_router
 
 
 # Setup centralized logging for API server
@@ -208,6 +210,8 @@ app.include_router(vmcp_router, prefix="/api")
 app.include_router(oauth_handler_router, prefix="/api")
 app.include_router(blob_router, prefix="/api")
 app.include_router(stats_router, prefix="/api")
+app.include_router(sandbox_router, prefix="/api")
+app.include_router(progressive_discovery_router, prefix="/api")
 
 # Mount the MCP server (now with shared lifespan)
 logger.info("[VMCPApiServer] Mounting MCP server with shared lifespan...")

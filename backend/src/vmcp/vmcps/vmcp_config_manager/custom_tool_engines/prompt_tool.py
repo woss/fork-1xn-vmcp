@@ -145,7 +145,7 @@ async def call_custom_tool(
 
     if tool_type == 'python':
         logger.info(f"🔍 PROMPT_TOOL: Calling Python tool with arguments: {arguments}")
-        return await execute_python_tool_func(custom_tool, arguments, environment_variables, tool_as_prompt)
+        return await execute_python_tool_func(custom_tool, arguments, environment_variables, tool_as_prompt, vmcp_id)
     elif tool_type == 'http':
         return await execute_http_tool_func(custom_tool, arguments, environment_variables, tool_as_prompt)
     else:  # prompt tool (default)

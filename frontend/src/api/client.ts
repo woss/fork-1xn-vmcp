@@ -133,8 +133,8 @@ class ApiClient {
       });
       const responseData = response.data as any;
       // Return the server data, preserving any message in the data object
-      const result: ApiResponse<any> = { 
-        success: true, 
+      const result: ApiResponse<any> = {
+        success: true,
         data: responseData?.server || responseData,
       };
       return result;
@@ -283,20 +283,20 @@ class ApiClient {
     }
   }
 
-  async getStats(filters?: { page?: number; limit?: number; [key: string]: any }, token?: string): Promise<ApiResponse<any>> {
+  async getStats(filters?: { page?: number; limit?: number;[key: string]: any }, token?: string): Promise<ApiResponse<any>> {
     try {
       // Build request body with defaults matching StatsFilterRequest model
       const requestBody: any = {
         page: filters?.page ?? 1,
         limit: filters?.limit ?? 50,
       };
-      
+
       // Add optional filters if provided
       if (filters?.agent_name) requestBody.agent_name = filters.agent_name;
       if (filters?.vmcp_name) requestBody.vmcp_name = filters.vmcp_name;
       if (filters?.method) requestBody.method = filters.method;
       if (filters?.search) requestBody.search = filters.search;
-      
+
       const configBaseUrl = client.getConfig().baseUrl || 'http://localhost:8000';
       const baseUrl = configBaseUrl.endsWith('/') ? configBaseUrl.slice(0, -1) : configBaseUrl;
       const url = `${baseUrl}/api/stats`;
@@ -393,7 +393,7 @@ class ApiClient {
     }
   }
 
-  async getVMCPConfiguration(vmcpName: string, options?: { server_id?: string; [key: string]: any }, token?: string): Promise<ApiResponse<any>> {
+  async getVMCPConfiguration(vmcpName: string, options?: { server_id?: string;[key: string]: any }, token?: string): Promise<ApiResponse<any>> {
     try {
       const params = new URLSearchParams();
       if (options) {
@@ -576,11 +576,11 @@ class ApiClient {
         ...(headers && { headers }),
       });
       const responseData = response.data as any;
-      
+
       // The backend returns { private: [...], public: [...] }
       // Ensure we always return an object with both arrays
       let vmcpsData: { private: any[]; public: any[] };
-      
+
       if (responseData && typeof responseData === 'object') {
         // Check if it already has the correct structure
         if ('private' in responseData || 'public' in responseData) {
@@ -608,7 +608,7 @@ class ApiClient {
           public: [],
         };
       }
-      
+
       return { success: true, data: vmcpsData };
     } catch (error) {
       return {
@@ -1056,23 +1056,23 @@ class ApiClient {
         path: { server_id: serverId },
         ...(headers && { headers }),
       });
-      
+
       // The SDK returns the full BaseResponse object in response.data
       // We need to extract the nested data field
       const responseData = response.data as any;
-      
+
       // Handle both response structures:
       // 1. If response.data is the BaseResponse with nested data field
       // 2. If response.data is already the data payload
       const data = responseData?.data ?? responseData;
-      
+
       console.log('Auth response structure:', {
         responseData,
         nestedData: responseData?.data,
         extractedData: data,
         hasAuthorizationUrl: !!data?.authorization_url
       });
-      
+
       return { success: true, data };
     } catch (error) {
       console.error('Error in initiateMCPServerAuth:', error);
@@ -1238,6 +1238,399 @@ class ApiClient {
     }
   }
   // Note: refreshVMCP and getSummaryVMCP are not in the new API, removed for now
+
+  // ============================================================================
+  // SANDBOX API METHODS
+  // ============================================================================
+
+  async enableSandbox(vmcpId: string, token?: string): Promise<ApiResponse<{ success: boolean; message: string; path: string }>> {
+    try {
+      const config = client.getConfig();
+      const baseUrl = config.baseUrl || '';
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      };
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
+      const response = await fetch(`${baseUrl}/api/vmcps/${encodeURIComponent(vmcpId)}/sandbox/enable`, {
+        method: 'POST',
+        headers,
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ detail: response.statusText }));
+        throw new Error(errorData.detail || `HTTP ${response.status}`);
+      }
+
+      const data = await response.json();
+      return { success: true, data };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to enable sandbox',
+      };
+    }
+  }
+
+  async disableSandbox(vmcpId: string, token?: string): Promise<ApiResponse<{ success: boolean; message: string }>> {
+    try {
+      const config = client.getConfig();
+      const baseUrl = config.baseUrl || '';
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      };
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
+      const response = await fetch(`${baseUrl}/api/vmcps/${encodeURIComponent(vmcpId)}/sandbox/disable`, {
+        method: 'POST',
+        headers,
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ detail: response.statusText }));
+        throw new Error(errorData.detail || `HTTP ${response.status}`);
+      }
+
+      const data = await response.json();
+      return { success: true, data };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to disable sandbox',
+      };
+    }
+  }
+
+  async getSandboxStatus(vmcpId: string, token?: string): Promise<ApiResponse<{ enabled: boolean; path: string; venv_exists: boolean; folder_exists: boolean }>> {
+    try {
+      const config = client.getConfig();
+      const baseUrl = config.baseUrl || '';
+      const headers: Record<string, string> = {};
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
+      const response = await fetch(`${baseUrl}/api/vmcps/${encodeURIComponent(vmcpId)}/sandbox/status`, {
+        method: 'GET',
+        headers,
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ detail: response.statusText }));
+        throw new Error(errorData.detail || `HTTP ${response.status}`);
+      }
+
+      const data = await response.json();
+      return { success: true, data };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to get sandbox status',
+      };
+    }
+  }
+
+  async listSandboxFiles(vmcpId: string, path: string = '', token?: string): Promise<ApiResponse<Array<{ name: string; path: string; type: string; children?: any[]; size?: number; modified?: string }>>> {
+    try {
+      const config = client.getConfig();
+      const baseUrl = config.baseUrl || '';
+      const headers: Record<string, string> = {};
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
+      const url = new URL(`${baseUrl}/api/vmcps/${encodeURIComponent(vmcpId)}/sandbox/files`);
+      if (path) {
+        url.searchParams.set('path', path);
+      }
+
+      const response = await fetch(url.toString(), {
+        method: 'GET',
+        headers,
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ detail: response.statusText }));
+        throw new Error(errorData.detail || `HTTP ${response.status}`);
+      }
+
+      const data = await response.json();
+      return { success: true, data };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to list sandbox files',
+      };
+    }
+  }
+
+  async getSandboxFile(vmcpId: string, filePath: string, token?: string): Promise<ApiResponse<{ content: string; path: string; size: number }>> {
+    try {
+      const config = client.getConfig();
+      const baseUrl = config.baseUrl || '';
+      const headers: Record<string, string> = {};
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
+      const response = await fetch(`${baseUrl}/api/vmcps/${encodeURIComponent(vmcpId)}/sandbox/files/${encodeURIComponent(filePath)}`, {
+        method: 'GET',
+        headers,
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ detail: response.statusText }));
+        throw new Error(errorData.detail || `HTTP ${response.status}`);
+      }
+
+      const data = await response.json();
+      return { success: true, data };
+    } catch (error) {
+      console.error('getSandboxFile error:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to get sandbox file',
+      };
+    }
+  }
+
+  async saveSandboxFile(vmcpId: string, filePath: string, content: string, token?: string): Promise<ApiResponse<{ success: boolean; message: string; path: string }>> {
+    try {
+      const config = client.getConfig();
+      const baseUrl = config.baseUrl || '';
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      };
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
+      const formData = new URLSearchParams();
+      formData.append('content', content);
+
+      const response = await fetch(`${baseUrl}/api/vmcps/${encodeURIComponent(vmcpId)}/sandbox/files/${encodeURIComponent(filePath)}`, {
+        method: 'PUT',
+        headers,
+        body: formData.toString(),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ detail: response.statusText }));
+        throw new Error(errorData.detail || `HTTP ${response.status}`);
+      }
+
+      const data = await response.json();
+      return { success: true, data };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to save sandbox file',
+      };
+    }
+  }
+
+  async uploadSandboxFile(vmcpId: string, file: File, targetPath?: string, token?: string): Promise<ApiResponse<{ success: boolean; message: string; path: string }>> {
+    try {
+      const config = client.getConfig();
+      const baseUrl = config.baseUrl || '';
+      const headers: Record<string, string> = {};
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
+      const formData = new FormData();
+      formData.append('file', file);
+      if (targetPath) {
+        formData.append('target_path', targetPath);
+      }
+
+      const response = await fetch(`${baseUrl}/api/vmcps/${encodeURIComponent(vmcpId)}/sandbox/files/upload`, {
+        method: 'POST',
+        headers,
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ detail: response.statusText }));
+        throw new Error(errorData.detail || `HTTP ${response.status}`);
+      }
+
+      const data = await response.json();
+      return { success: true, data };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to upload sandbox file',
+      };
+    }
+  }
+
+  async createSandboxFolder(vmcpId: string, folderPath: string, token?: string): Promise<ApiResponse<{ success: boolean; message: string; path: string }>> {
+    try {
+      const config = client.getConfig();
+      const baseUrl = config.baseUrl || '';
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      };
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
+      const formData = new URLSearchParams();
+      formData.append('folder_path', folderPath);
+
+      const response = await fetch(`${baseUrl}/api/vmcps/${encodeURIComponent(vmcpId)}/sandbox/files/folder`, {
+        method: 'POST',
+        headers,
+        body: formData.toString(),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ detail: response.statusText }));
+        return {
+          success: false,
+          error: errorData.detail || `Failed to create folder: ${response.statusText}`,
+        };
+      }
+
+      const data = await response.json();
+      return { success: true, data };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to create folder',
+      };
+    }
+  }
+
+  async deleteSandboxFile(vmcpId: string, filePath: string, token?: string): Promise<ApiResponse<{ success: boolean; message: string; path: string }>> {
+    try {
+      const config = client.getConfig();
+      const baseUrl = config.baseUrl || '';
+      const headers: Record<string, string> = {};
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
+      const response = await fetch(`${baseUrl}/api/vmcps/${encodeURIComponent(vmcpId)}/sandbox/files/${encodeURIComponent(filePath)}`, {
+        method: 'DELETE',
+        headers,
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ detail: response.statusText }));
+        throw new Error(errorData.detail || `HTTP ${response.status}`);
+      }
+
+      const data = await response.json();
+      return { success: true, data };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to delete sandbox file',
+      };
+    }
+  }
+
+  // ============================================================================
+  // PROGRESSIVE DISCOVERY API METHODS
+  // ============================================================================
+
+  async enableProgressiveDiscovery(vmcpId: string, token?: string): Promise<ApiResponse<{ success: boolean; message: string }>> {
+    try {
+      const config = client.getConfig();
+      const baseUrl = config.baseUrl || '';
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      };
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
+      const response = await fetch(`${baseUrl}/api/vmcps/${encodeURIComponent(vmcpId)}/progressive-discovery/enable`, {
+        method: 'POST',
+        headers,
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ detail: response.statusText }));
+        throw new Error(errorData.detail || `HTTP ${response.status}`);
+      }
+
+      const data = await response.json();
+      return { success: true, data };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to enable progressive discovery',
+      };
+    }
+  }
+
+  async disableProgressiveDiscovery(vmcpId: string, token?: string): Promise<ApiResponse<{ success: boolean; message: string }>> {
+    try {
+      const config = client.getConfig();
+      const baseUrl = config.baseUrl || '';
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      };
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
+      const response = await fetch(`${baseUrl}/api/vmcps/${encodeURIComponent(vmcpId)}/progressive-discovery/disable`, {
+        method: 'POST',
+        headers,
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ detail: response.statusText }));
+        throw new Error(errorData.detail || `HTTP ${response.status}`);
+      }
+
+      const data = await response.json();
+      return { success: true, data };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to disable progressive discovery',
+      };
+    }
+  }
+
+  async getProgressiveDiscoveryStatus(vmcpId: string, token?: string): Promise<ApiResponse<{ enabled: boolean }>> {
+    try {
+      const config = client.getConfig();
+      const baseUrl = config.baseUrl || '';
+      const headers: Record<string, string> = {};
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
+      const response = await fetch(`${baseUrl}/api/vmcps/${encodeURIComponent(vmcpId)}/progressive-discovery/status`, {
+        method: 'GET',
+        headers,
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ detail: response.statusText }));
+        throw new Error(errorData.detail || `HTTP ${response.status}`);
+      }
+
+      const data = await response.json();
+      return { success: true, data };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to get progressive discovery status',
+      };
+    }
+  }
+
 }
 
 // Get backend URL from environment variables

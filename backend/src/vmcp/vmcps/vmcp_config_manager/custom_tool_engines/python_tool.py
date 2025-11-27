@@ -12,7 +12,8 @@ import os
 import json
 import sys
 import logging
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
+from pathlib import Path
 
 from mcp.types import TextContent, PromptMessage, GetPromptResult, CallToolResult
 
@@ -113,7 +114,8 @@ async def execute_python_tool(
     custom_tool: dict,
     arguments: Dict[str, Any],
     environment_variables: Dict[str, Any],
-    tool_as_prompt: bool = False
+    tool_as_prompt: bool = False,
+    vmcp_id: Optional[str] = None
 ):
     """
     Execute a Python tool with secure sandboxing.
@@ -123,6 +125,7 @@ async def execute_python_tool(
         arguments: Tool arguments
         environment_variables: Environment variables
         tool_as_prompt: Whether to return as prompt result
+        vmcp_id: Optional vMCP ID for sandbox tool execution
 
     Returns:
         CallToolResult or GetPromptResult
@@ -166,13 +169,13 @@ async def execute_python_tool(
                     'object': 'dict'
                 }
                 internal_type = type_mapping.get(schema_type, 'str')
-                
+
                 variables_from_code.append({
                     'name': param_name,
                     'type': internal_type,
                     'required': param_name in schema_from_code.get('required', [])
                 })
-            
+
             logger.info(f"🔍 PYTHON_TOOL: Extracted types from function signature: {variables_from_code}")
         except Exception as e:
             logger.warning(f"Failed to extract types from function signature: {e}")
@@ -187,6 +190,31 @@ async def execute_python_tool(
     
     converted_arguments = convert_arguments_to_types(arguments, all_variables)
     logger.info(f"🔍 PYTHON_TOOL: Converted arguments: {converted_arguments}")
+
+    # Determine which Python executable to use
+    # For sandbox tools (execute_bash, execute_python), use the sandbox's venv Python
+    tool_name = custom_tool.get('name', '')
+    is_sandbox_tool = tool_name in ('execute_bash', 'execute_python')
+    python_executable = sys.executable
+    
+    if is_sandbox_tool and vmcp_id:
+        try:
+            from vmcp.vmcps.sandbox_service import get_sandbox_service
+            sandbox_service = get_sandbox_service()
+            sandbox_path = sandbox_service.get_sandbox_path(vmcp_id)
+            venv_python = sandbox_path / ".venv" / "bin" / "python"
+            
+            # Try Windows path if Unix path doesn't exist
+            if not venv_python.exists():
+                venv_python = sandbox_path / ".venv" / "Scripts" / "python.exe"
+            
+            if venv_python.exists():
+                python_executable = str(venv_python)
+                logger.info(f"Using sandbox venv Python: {python_executable} for tool {tool_name}")
+            else:
+                logger.warning(f"Sandbox venv Python not found at {venv_python}, using system Python")
+        except Exception as e:
+            logger.warning(f"Failed to get sandbox venv Python for {vmcp_id}: {e}, using system Python")
 
     # Create a secure execution environment
     try:
@@ -271,12 +299,27 @@ else:
             temp_file = f.name
 
         # Execute the Python code in a secure environment
+        # For sandbox tools, run in the sandbox directory; otherwise use temp directory
+        if is_sandbox_tool and vmcp_id:
+            try:
+                from vmcp.vmcps.sandbox_service import get_sandbox_service
+                sandbox_service = get_sandbox_service()
+                sandbox_path = sandbox_service.get_sandbox_path(vmcp_id)
+                cwd = str(sandbox_path) if sandbox_path.exists() else tempfile.gettempdir()
+            except Exception:
+                cwd = tempfile.gettempdir()
+        else:
+            cwd = tempfile.gettempdir()
+        
+        # Use longer timeout for sandbox tools (they have their own 30s timeout)
+        timeout = 60 if is_sandbox_tool else 30
+        
         result = subprocess.run(
-            [sys.executable, temp_file],
+            [python_executable, temp_file],
             capture_output=True,
             text=True,
-            timeout=30,  # 30 second timeout
-            cwd=tempfile.gettempdir()  # Run in temp directory
+            timeout=timeout,
+            cwd=cwd
         )
 
         # Clean up the temporary file
@@ -323,10 +366,11 @@ else:
 
         return tool_result
 
-    except subprocess.TimeoutExpired:
+    except subprocess.TimeoutExpired as e:
+        timeout_seconds = getattr(e, 'timeout', 30)
         error_content = TextContent(
             type="text",
-            text="Python tool execution timed out (30 seconds)",
+            text=f"Python tool execution timed out ({timeout_seconds} seconds)",
             annotations=None,
             meta=None
         )
