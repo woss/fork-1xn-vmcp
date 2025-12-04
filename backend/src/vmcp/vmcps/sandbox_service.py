@@ -27,23 +27,75 @@ class SandboxService:
 SANDBOX ENVIRONMENT
 ================================================================================
 
-IMPORTANT: All bash commands and Python code execution MUST be done through the provided tools:
-- execute_bash: Use this tool for ALL bash/shell commands
-- execute_python: Use this tool for ALL Python code execution
+IMPORTANT: All bash commands and Python code execution MUST be done through the provided tools.
+You have access to the execute_bash tool:
 
-The sandbox environment:
-- Executes commands in ~/.vmcp/{vmcp_id}
-- Applies filesystem restrictions (blocks access to ~/.ssh, ~/.aws, etc.)
-- Applies network restrictions (no network access by default)
-- Provides isolation from the host system
+1. execute_bash: Execute bash/shell commands in the sandbox
 
-When you need to:
-- Run shell commands → Use execute_bash tool
-- Execute Python code → Use execute_python tool
-- Create files → They will be created in ~/.vmcp/{vmcp_id}
-- Read files → Only files in the sandbox directory are accessible
+SANDBOX LOCATION:
+- All operations execute in: ~/.vmcp/{vmcp_id}
+- Working directory: ~/.vmcp/{vmcp_id} (appears as /root/ inside sandbox)
+- Files created/modified are stored in this directory
 
-Do NOT attempt to execute bash or python commands directly. Always use the provided tools.
+SANDBOX RESTRICTIONS:
+- Filesystem: Blocks access to ~/.ssh, ~/.aws, ~/.kube, ~/.config/gcloud
+- Network: No network access by default
+- Isolation: Complete isolation from the host system
+
+USING execute_bash TOOL:
+
+The execute_bash tool runs any bash/shell command in the sandbox. Use it for ALL file operations and shell commands.
+
+Common operations:
+- List files: execute_bash(command="ls -la")
+- Create directory: execute_bash(command="mkdir -p mydir")
+- Copy files: execute_bash(command="cp source.txt dest.txt")
+- Move/rename: execute_bash(command="mv old.txt new.txt")
+- Remove files: execute_bash(command="rm file.txt")
+- Create files: execute_bash(command="echo 'content' > file.txt")
+- View files: execute_bash(command="cat file.txt")
+- Find files: execute_bash(command="find . -name '*.py'")
+- Check Python version: execute_bash(command=".venv/bin/python --version")
+- Install packages: execute_bash(command=".venv/bin/pip install package_name")
+- Run Python code: execute_bash(command=".venv/bin/python -c \"print('Hello')\"")
+- Run Python scripts: execute_bash(command=".venv/bin/python script.py")
+
+Examples:
+Use execute_bash like this:
+# Create a directory
+execute_bash(command="mkdir -p scripts")
+
+# Copy a file
+execute_bash(command="cp template.py script.py")
+
+# List all Python files
+execute_bash(command="find . -name '*.py' -type f")
+
+# Check if a file exists
+execute_bash(command="test -f script.py && echo 'exists' || echo 'not found'")
+
+# Run Python code inline
+execute_bash(command=".venv/bin/python -c \"print('Hello, World!')\"")
+
+# Run a Python script
+execute_bash(command=".venv/bin/python script.py")
+
+WORKFLOW PATTERNS:
+
+1. Create Python script file, then run it:
+   # Create script
+   execute_bash(command="cat > script.py << 'EOF'\\nimport vmcp_sdk\\nresult = vmcp_sdk.some_tool()\\nprint(result)\\nEOF")
+   
+   # Run script
+   execute_bash(command=".venv/bin/python script.py")
+
+CRITICAL RULES:
+- NEVER try to execute bash or python commands directly
+- ALWAYS use execute_bash for shell commands
+- For Python code, create a script file and run it with execute_bash: execute_bash(command=".venv/bin/python script.py")
+- The sandbox Python is at .venv/bin/python
+- All file operations must go through execute_bash
+- Files are created in ~/.vmcp/{vmcp_id}
 
 ================================================================================
 vMCP SDK ARCHITECTURE
@@ -56,7 +108,7 @@ KEY CONCEPTS:
 1. vMCP (Virtual MCP Server):
    - A virtual configuration that aggregates multiple MCP servers
    - Provides a unified interface to access tools, prompts, and resources from multiple MCP servers
-   - Each vMCP has a unique name (e.g., "1xndemo", "linear", "github")
+   - Each vMCP has a unique ID (e.g., "1xndemo", "linear", "github")
 
 2. MCP (Model Context Protocol) Server:
    - Individual servers that expose tools, prompts, and resources
@@ -65,29 +117,25 @@ KEY CONCEPTS:
 
 3. SDK Components:
    - VMCPClient: Core client for interacting with vMCPs
-   - VMCPProxy: Dynamic proxy for accessing vMCPs by name
-   - ActiveVMCPManager: Manages the currently active vMCP
    - Tools are automatically converted to typed Python functions
+   - The vMCP is automatically detected from .vmcp-config.json in the sandbox directory
+
+================================================================================
+AUTOMATIC vMCP DETECTION
+================================================================================
+
+IMPORTANT: The vMCP is automatically detected from the sandbox configuration file (.vmcp-config.json).
+You do NOT need to specify the vMCP name or ID anywhere - it's automatically read from the sandbox.
+
+The sandbox directory contains a .vmcp-config.json file with the vmcp_id for this sandbox.
+Both the SDK and CLI automatically use this configuration.
 
 ================================================================================
 INSTALLATION & SETUP
 ================================================================================
 
-To use the vMCP SDK and CLI in the sandbox:
-
-1. Install the SDK (if not already installed):
-   ```python
-   # Use execute_python to run:
-   import subprocess
-   import sys
-   subprocess.check_call([sys.executable, "-m", "pip", "install", "-e", "/path/to/oss/backend"])
-   ```
-
-2. Set active vMCP (optional, for convenience):
-   ```python
-   from vmcp_sdk.active_vmcp import ActiveVMCPManager
-   ActiveVMCPManager().set_active_vmcp("1xndemo")
-   ```
+The SDK and CLI are pre-installed in the sandbox virtual environment.
+No additional installation is needed - just import and use!
 
 ================================================================================
 EXPLORATION STRATEGY: CLI FOR DISCOVERY, SDK FOR SCRIPTS
@@ -106,7 +154,7 @@ WHY THIS APPROACH:
 USING THE CLI FOR EXPLORATION:
 
 The CLI tool `vmcp-sdk` is available for exploring tools in the current sandbox's vMCP.
-The vMCP is automatically detected from the sandbox configuration.
+The vMCP is automatically detected from .vmcp-config.json in the sandbox directory.
 
 1. List tools in the current vMCP:
    ```bash
@@ -152,24 +200,15 @@ USING THE SDK - BASIC PATTERNS (FOR SCRIPTS)
 ================================================================================
 
 The SDK automatically works with the vMCP associated with the current sandbox.
-The vMCP is detected from .vmcp-config.json in the sandbox directory.
+The vMCP is automatically detected from .vmcp-config.json in the sandbox directory.
+You do NOT need to specify the vMCP name or ID - it's handled automatically.
 
 1. Import the SDK:
    ```python
    import vmcp_sdk
    ```
 
-2. Access the current vMCP:
-   ```python
-   # The SDK automatically uses the vMCP from the sandbox config
-   # For vMCP names starting with numbers or special characters, use getattr:
-   demo = getattr(vmcp_sdk, "1xndemo")
-   
-   # For regular names, direct access works:
-   linear = vmcp_sdk.linear  # if "linear" is the current vMCP
-   ```
-
-3. Explore tools in the current vMCP (programmatically):
+2. Explore tools in the current vMCP (programmatically):
    ```python
    # List all tools
    tools = vmcp_sdk.list_tools()
@@ -179,17 +218,18 @@ The vMCP is detected from .vmcp-config.json in the sandbox directory.
        print(f"  Parameters: {tool.get('inputSchema', {}).get('properties', {})}")
    ```
 
-4. List prompts and resources:
+3. List prompts and resources:
    ```python
    prompts = vmcp_sdk.list_prompts()
    resources = vmcp_sdk.list_resources()
    ```
 
-5. Call tools (tools are typed Python functions!):
+4. Call tools (tools are typed Python functions accessed directly on the module!):
    ```python
    # Tools are automatically converted to Python functions
    # Function names are normalized (e.g., "AllFeature_get_weather" → "all_feature_get_weather")
-   result = demo.all_feature_get_weather(city="Sydney")
+   # Access tools directly on the vmcp_sdk module - no need to access by vMCP name
+   result = vmcp_sdk.all_feature_get_weather(city="Sydney")
    
    # Results are dictionaries with structured content
    if isinstance(result, dict):
@@ -211,7 +251,7 @@ TOOL EXECUTION PATTERNS
 2. Error Handling:
    ```python
    try:
-       result = demo.all_feature_get_weather(city="Sydney")
+       result = vmcp_sdk.all_feature_get_weather(city="Sydney")
        if result.get("isError"):
            print(f"Error: {result.get('content')}")
        else:
@@ -222,7 +262,7 @@ TOOL EXECUTION PATTERNS
 
 3. Extracting Results:
    ```python
-   result = demo.all_feature_add_numbers(a=5, b=3)
+   result = vmcp_sdk.all_feature_add_numbers(a=5, b=3)
    
    # Method 1: Get structured content
    structured = result.get("structuredContent", {})
@@ -247,23 +287,20 @@ You can create Python scripts that combine multiple tools into workflows:
 Example workflow combining multiple tools
 \"\"\"
 import sys
-from pathlib import Path
-
-# Add SDK to path if needed
-sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 import vmcp_sdk
 
 def weather_workflow(city: str):
     \"\"\"Get location and weather for a city.\"\"\"
-    demo = getattr(vmcp_sdk, "1xndemo")
+    # Tools are accessed directly on vmcp_sdk module
+    # No need to specify vMCP name - it's auto-detected from sandbox config
     
     # Step 1: Get location
-    location = demo.all_feature_get_location(city=city)
+    location = vmcp_sdk.all_feature_get_location(city=city)
     print(f"Location: {location}")
     
     # Step 2: Get weather
-    weather = demo.all_feature_get_weather(city=city)
+    weather = vmcp_sdk.all_feature_get_weather(city=city)
     print(f"Weather: {weather}")
     
     return {"location": location, "weather": weather}
@@ -305,10 +342,9 @@ for tool in tools:
     tool_name = tool.get("name", "")
     normalized_name = tool_name.replace("-", "_").lower()
     
-    # Access the tool function via the SDK
-    demo = getattr(vmcp_sdk, "1xndemo")  # Use current vMCP name
+    # Access the tool function directly on vmcp_sdk module
     try:
-        tool_func = getattr(demo, normalized_name)
+        tool_func = getattr(vmcp_sdk, normalized_name)
         sig = inspect.signature(tool_func)
         print(f"{tool_name}: {sig}")
     except AttributeError:
@@ -326,41 +362,38 @@ WORKFLOW EXAMPLES
 
 1. Math Operations Workflow:
    ```python
-   demo = getattr(vmcp_sdk, "1xndemo")
-   result1 = demo.all_feature_add_numbers(a=15, b=27)
-   result2 = demo.all_feature_add(a=10, b=20)
+   result1 = vmcp_sdk.all_feature_add_numbers(a=15, b=27)
+   result2 = vmcp_sdk.all_feature_add(a=10, b=20)
    ```
 
 2. Weather Information Pipeline:
    ```python
-   demo = getattr(vmcp_sdk, "1xndemo")
-   location = demo.all_feature_get_location(city="New York")
-   weather = demo.all_feature_get_weather(city="New York")
+   location = vmcp_sdk.all_feature_get_location(city="New York")
+   weather = vmcp_sdk.all_feature_get_weather(city="New York")
    ```
 
 3. Data Processing:
    ```python
-   demo = getattr(vmcp_sdk, "1xndemo")
-   time_result = demo.all_feature_get_current_time(timezone_name="UTC")
-   data_result = demo.all_feature_process_data(data="sample_data")
+   time_result = vmcp_sdk.all_feature_get_current_time(timezone_name="UTC")
+   data_result = vmcp_sdk.all_feature_process_data(data="sample_data")
    ```
 
 ================================================================================
 IMPORTANT NOTES FOR CODING AGENTS
 ================================================================================
 
-1. Always use execute_python for Python code execution
-2. Always use execute_bash for shell commands
-3. Use CLI (vmcp-sdk) for EXPLORATION - quick discovery of vMCPs and tools
+1. Always use execute_bash for shell commands and Python execution
+3. Use CLI (vmcp-sdk) for EXPLORATION - quick discovery of tools
 4. Use SDK (vmcp_sdk) for SCRIPTS - programmatic workflows and automation
-5. The SDK must be installed in the environment where you're running code
+5. The SDK and CLI are pre-installed in the sandbox - no installation needed
 6. Tool names are normalized: "AllFeature_get_weather" → "all_feature_get_weather"
-7. For vMCP names starting with numbers, use getattr(vmcp_sdk, "1xndemo")
-8. Tools are lazy-loaded - they're created when first accessed
-9. Results are dictionaries - always check structure before accessing
-10. Create reusable scripts in ~/.vmcp/{vmcp_id} for future use
-11. Test tools individually before combining them into workflows
-12. Start with CLI exploration, then build SDK scripts based on what you discover
+7. Access tools directly on vmcp_sdk module - no need to specify vMCP name
+8. The vMCP is automatically detected from .vmcp-config.json in the sandbox
+9. Tools are lazy-loaded - they're created when first accessed
+10. Results are dictionaries - always check structure before accessing
+11. Create reusable scripts in ~/.vmcp/{vmcp_id} for future use
+12. Test tools individually before combining them into workflows
+13. Start with CLI exploration, then build SDK scripts based on what you discover
 
 ================================================================================
 TROUBLESHOOTING
@@ -369,19 +402,20 @@ TROUBLESHOOTING
 If you encounter issues:
 
 1. SDK/CLI not found:
-   - Ensure SDK is installed: `pip install -e /path/to/oss/backend`
-   - Check Python path includes the SDK location
-   - Verify `vmcp-sdk` command is in PATH
+   - The SDK and CLI are pre-installed in the sandbox virtual environment
+   - If issues persist, check that you're using the sandbox's Python interpreter
+   - Verify `vmcp-sdk` command is available in the sandbox PATH
 
 2. vMCP not found:
    - Ensure you're in a sandbox directory with .vmcp-config.json
-   - Verify the sandbox is properly configured with a vMCP ID
+   - Verify the sandbox is properly configured with a vmcp_id
+   - The vMCP is automatically detected - no need to specify it manually
 
 3. Tool not accessible:
    - Use CLI to see exact names: `vmcp-sdk list-tools`
    - Check tool name normalization (camelCase → snake_case)
    - List tools programmatically: `vmcp_sdk.list_tools()` to see exact names
-   - Use getattr for dynamic access: `getattr(demo, "tool_name")`
+   - Access tools directly on vmcp_sdk: `vmcp_sdk.tool_name()` or `getattr(vmcp_sdk, "tool_name")`
 
 4. Tool execution errors:
    - Test via CLI first: `vmcp-sdk call-tool --tool <name> --payload '{...}'`
@@ -403,8 +437,9 @@ WORKFLOW RECOMMENDATION:
    - `vmcp-sdk list-tools` - Explore tools in the current vMCP
    - `vmcp-sdk call-tool --tool <name> --payload '{...}'` - Test tools
 
-2. Use execute_python to run SDK code for SCRIPTS:
-   - Import vmcp_sdk and create programmatic workflows
+2. Use execute_bash to run Python scripts for SDK automation:
+   - Create Python scripts with vmcp_sdk imports
+   - Run scripts with: execute_bash(command=".venv/bin/python script.py")
    - Combine multiple tools into reusable scripts
    - Save scripts in ~/.vmcp/{vmcp_id} for future use
 
@@ -418,23 +453,75 @@ The CLI is your exploration tool, the SDK is your automation tool. Use both effe
 SANDBOX ENVIRONMENT
 ================================================================================
 
-IMPORTANT: All bash commands and Python code execution MUST be done through the provided tools:
-- execute_bash: Use this tool for ALL bash/shell commands
-- execute_python: Use this tool for ALL Python code execution
+IMPORTANT: All bash commands and Python code execution MUST be done through the provided tools.
+You have access to the execute_bash tool:
 
-The sandbox environment:
-- Executes commands in ~/.vmcp/{vmcp_id}
-- Applies filesystem restrictions (blocks access to ~/.ssh, ~/.aws, etc.)
-- Applies network restrictions (no network access by default)
-- Provides isolation from the host system
+1. execute_bash: Execute bash/shell commands in the sandbox
 
-When you need to:
-- Run shell commands → Use execute_bash tool
-- Execute Python code → Use execute_python tool
-- Create files → They will be created in ~/.vmcp/{vmcp_id}
-- Read files → Only files in the sandbox directory are accessible
+SANDBOX LOCATION:
+- All operations execute in: ~/.vmcp/{vmcp_id}
+- Working directory: ~/.vmcp/{vmcp_id} (appears as /root/ inside sandbox)
+- Files created/modified are stored in this directory
 
-Do NOT attempt to execute bash or python commands directly. Always use the provided tools.
+SANDBOX RESTRICTIONS:
+- Filesystem: Blocks access to ~/.ssh, ~/.aws, ~/.kube, ~/.config/gcloud
+- Network: No network access by default
+- Isolation: Complete isolation from the host system
+
+USING execute_bash TOOL:
+
+The execute_bash tool runs any bash/shell command in the sandbox. Use it for ALL file operations and shell commands.
+
+Common operations:
+- List files: execute_bash(command="ls -la")
+- Create directory: execute_bash(command="mkdir -p mydir")
+- Copy files: execute_bash(command="cp source.txt dest.txt")
+- Move/rename: execute_bash(command="mv old.txt new.txt")
+- Remove files: execute_bash(command="rm file.txt")
+- Create files: execute_bash(command="echo 'content' > file.txt")
+- View files: execute_bash(command="cat file.txt")
+- Find files: execute_bash(command="find . -name '*.py'")
+- Check Python version: execute_bash(command=".venv/bin/python --version")
+- Install packages: execute_bash(command=".venv/bin/pip install package_name")
+- Run Python code: execute_bash(command=".venv/bin/python -c \"print('Hello')\"")
+- Run Python scripts: execute_bash(command=".venv/bin/python script.py")
+
+Examples:
+Use execute_bash like this:
+# Create a directory
+execute_bash(command="mkdir -p scripts")
+
+# Copy a file
+execute_bash(command="cp template.py script.py")
+
+# List all Python files
+execute_bash(command="find . -name '*.py' -type f")
+
+# Check if a file exists
+execute_bash(command="test -f script.py && echo 'exists' || echo 'not found'")
+
+# Run Python code inline
+execute_bash(command=".venv/bin/python -c \"print('Hello, World!')\"")
+
+# Run a Python script
+execute_bash(command=".venv/bin/python script.py")
+
+WORKFLOW PATTERNS:
+
+1. Create Python script file, then run it:
+   # Create script
+   execute_bash(command="cat > script.py << 'EOF'\\nimport vmcp_sdk\\nresult = vmcp_sdk.some_tool()\\nprint(result)\\nEOF")
+   
+   # Run script
+   execute_bash(command=".venv/bin/python script.py")
+
+CRITICAL RULES:
+- NEVER try to execute bash or python commands directly
+- ALWAYS use execute_bash for shell commands
+- For Python code, create a script file and run it with execute_bash: execute_bash(command=".venv/bin/python script.py")
+- The sandbox Python is at .venv/bin/python
+- All file operations must go through execute_bash
+- Files are created in ~/.vmcp/{vmcp_id}
 
 ================================================================================
 vMCP SDK ARCHITECTURE
@@ -447,7 +534,7 @@ KEY CONCEPTS:
 1. vMCP (Virtual MCP Server):
    - A virtual configuration that aggregates multiple MCP servers
    - Provides a unified interface to access tools, prompts, and resources from multiple MCP servers
-   - Each vMCP has a unique name (e.g., "1xndemo", "linear", "github")
+   - Each vMCP has a unique ID (e.g., "1xndemo", "linear", "github")
 
 2. MCP (Model Context Protocol) Server:
    - Individual servers that expose tools, prompts, and resources
@@ -456,53 +543,40 @@ KEY CONCEPTS:
 
 3. SDK Components:
    - VMCPClient: Core client for interacting with vMCPs
-   - VMCPProxy: Dynamic proxy for accessing vMCPs by name
-   - ActiveVMCPManager: Manages the currently active vMCP
    - Tools are automatically converted to typed Python functions
+   - The vMCP is automatically detected from .vmcp-config.json in the sandbox directory
+
+================================================================================
+AUTOMATIC vMCP DETECTION
+================================================================================
+
+IMPORTANT: The vMCP is automatically detected from the sandbox configuration file (.vmcp-config.json).
+You do NOT need to specify the vMCP name or ID anywhere - it's automatically read from the sandbox.
+
+The sandbox directory contains a .vmcp-config.json file with the vmcp_id for this sandbox.
+The SDK automatically uses this configuration.
 
 ================================================================================
 INSTALLATION & SETUP
 ================================================================================
 
-To use the vMCP SDK in the sandbox:
-
-1. Install the SDK (if not already installed):
-   ```python
-   # Use execute_python to run:
-   import subprocess
-   import sys
-   subprocess.check_call([sys.executable, "-m", "pip", "install", "-e", "/path/to/oss/backend"])
-   ```
-
-2. Set active vMCP (optional, for convenience):
-   ```python
-   from vmcp_sdk.active_vmcp import ActiveVMCPManager
-   ActiveVMCPManager().set_active_vmcp("1xndemo")
-   ```
+The SDK is pre-installed in the sandbox virtual environment.
+No additional installation is needed - just import and use!
 
 ================================================================================
 USING THE SDK - BASIC PATTERNS
 ================================================================================
 
 The SDK automatically works with the vMCP associated with the current sandbox.
-The vMCP is detected from .vmcp-config.json in the sandbox directory.
+The vMCP is automatically detected from .vmcp-config.json in the sandbox directory.
+You do NOT need to specify the vMCP name or ID - it's handled automatically.
 
 1. Import the SDK:
    ```python
    import vmcp_sdk
    ```
 
-2. Access the current vMCP:
-   ```python
-   # The SDK automatically uses the vMCP from the sandbox config
-   # For vMCP names starting with numbers or special characters, use getattr:
-   demo = getattr(vmcp_sdk, "1xndemo")
-   
-   # For regular names, direct access works:
-   linear = vmcp_sdk.linear  # if "linear" is the current vMCP
-   ```
-
-3. Explore tools in the current vMCP:
+2. Explore tools in the current vMCP:
    ```python
    # List all tools
    tools = vmcp_sdk.list_tools()
@@ -512,19 +586,18 @@ The vMCP is detected from .vmcp-config.json in the sandbox directory.
        print(f"  Parameters: {tool.get('inputSchema', {}).get('properties', {})}")
    ```
 
-4. List prompts and resources:
+3. List prompts and resources:
    ```python
    prompts = vmcp_sdk.list_prompts()
    resources = vmcp_sdk.list_resources()
    ```
 
-6. Call tools (tools are typed Python functions!):
+4. Call tools (tools are typed Python functions accessed directly on the module!):
    ```python
-   demo = getattr(vmcp_sdk, "1xndemo")
-   
    # Tools are automatically converted to Python functions
    # Function names are normalized (e.g., "AllFeature_get_weather" → "all_feature_get_weather")
-   result = demo.all_feature_get_weather(city="Sydney")
+   # Access tools directly on the vmcp_sdk module - no need to access by vMCP name
+   result = vmcp_sdk.all_feature_get_weather(city="Sydney")
    
    # Results are dictionaries with structured content
    if isinstance(result, dict):
@@ -546,7 +619,7 @@ TOOL EXECUTION PATTERNS
 2. Error Handling:
    ```python
    try:
-       result = demo.all_feature_get_weather(city="Sydney")
+       result = vmcp_sdk.all_feature_get_weather(city="Sydney")
        if result.get("isError"):
            print(f"Error: {result.get('content')}")
        else:
@@ -557,7 +630,7 @@ TOOL EXECUTION PATTERNS
 
 3. Extracting Results:
    ```python
-   result = demo.all_feature_add_numbers(a=5, b=3)
+   result = vmcp_sdk.all_feature_add_numbers(a=5, b=3)
    
    # Method 1: Get structured content
    structured = result.get("structuredContent", {})
@@ -582,23 +655,20 @@ You can create Python scripts that combine multiple tools into workflows:
 Example workflow combining multiple tools
 \"\"\"
 import sys
-from pathlib import Path
-
-# Add SDK to path if needed
-sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 import vmcp_sdk
 
 def weather_workflow(city: str):
     \"\"\"Get location and weather for a city.\"\"\"
-    demo = getattr(vmcp_sdk, "1xndemo")
+    # Tools are accessed directly on vmcp_sdk module
+    # No need to specify vMCP name - it's auto-detected from sandbox config
     
     # Step 1: Get location
-    location = demo.all_feature_get_location(city=city)
+    location = vmcp_sdk.all_feature_get_location(city=city)
     print(f"Location: {location}")
     
     # Step 2: Get weather
-    weather = demo.all_feature_get_weather(city=city)
+    weather = vmcp_sdk.all_feature_get_weather(city=city)
     print(f"Weather: {weather}")
     
     return {"location": location, "weather": weather}
@@ -622,39 +692,36 @@ WORKFLOW EXAMPLES
 
 1. Math Operations Workflow:
    ```python
-   demo = getattr(vmcp_sdk, "1xndemo")
-   result1 = demo.all_feature_add_numbers(a=15, b=27)
-   result2 = demo.all_feature_add(a=10, b=20)
+   result1 = vmcp_sdk.all_feature_add_numbers(a=15, b=27)
+   result2 = vmcp_sdk.all_feature_add(a=10, b=20)
    ```
 
 2. Weather Information Pipeline:
    ```python
-   demo = getattr(vmcp_sdk, "1xndemo")
-   location = demo.all_feature_get_location(city="New York")
-   weather = demo.all_feature_get_weather(city="New York")
+   location = vmcp_sdk.all_feature_get_location(city="New York")
+   weather = vmcp_sdk.all_feature_get_weather(city="New York")
    ```
 
 3. Data Processing:
    ```python
-   demo = getattr(vmcp_sdk, "1xndemo")
-   time_result = demo.all_feature_get_current_time(timezone_name="UTC")
-   data_result = demo.all_feature_process_data(data="sample_data")
+   time_result = vmcp_sdk.all_feature_get_current_time(timezone_name="UTC")
+   data_result = vmcp_sdk.all_feature_process_data(data="sample_data")
    ```
 
 ================================================================================
 IMPORTANT NOTES FOR CODING AGENTS
 ================================================================================
 
-1. Always use execute_python for Python code execution
-2. Always use execute_bash for shell commands
+1. Always use execute_bash for shell commands and Python execution
 3. Use the SDK (vmcp_sdk) for programmatic workflows and automation
-4. The SDK must be installed in the environment where you're running code
+4. The SDK is pre-installed in the sandbox - no installation needed
 5. Tool names are normalized: "AllFeature_get_weather" → "all_feature_get_weather"
-6. For vMCP names starting with numbers, use getattr(vmcp_sdk, "1xndemo")
-7. Tools are lazy-loaded - they're created when first accessed
-8. Results are dictionaries - always check structure before accessing
-9. Create reusable scripts in ~/.vmcp/{vmcp_id} for future use
-10. Test tools individually before combining them into workflows
+6. Access tools directly on vmcp_sdk module - no need to specify vMCP name
+7. The vMCP is automatically detected from .vmcp-config.json in the sandbox
+8. Tools are lazy-loaded - they're created when first accessed
+9. Results are dictionaries - always check structure before accessing
+10. Create reusable scripts in ~/.vmcp/{vmcp_id} for future use
+11. Test tools individually before combining them into workflows
 
 ================================================================================
 TROUBLESHOOTING
@@ -663,17 +730,18 @@ TROUBLESHOOTING
 If you encounter issues:
 
 1. SDK not found:
-   - Ensure SDK is installed: `pip install -e /path/to/oss/backend`
-   - Check Python path includes the SDK location
+   - The SDK is pre-installed in the sandbox virtual environment
+   - If issues persist, check that you're using the sandbox's Python interpreter
 
 2. vMCP not found:
    - Ensure you're in a sandbox directory with .vmcp-config.json
-   - Verify the sandbox is properly configured with a vMCP ID
+   - Verify the sandbox is properly configured with a vmcp_id
+   - The vMCP is automatically detected - no need to specify it manually
 
 3. Tool not accessible:
    - Check tool name normalization (camelCase → snake_case)
    - List tools programmatically: `vmcp_sdk.list_tools()` to see exact names
-   - Use getattr for dynamic access: `getattr(demo, "tool_name")`
+   - Access tools directly on vmcp_sdk: `vmcp_sdk.tool_name()` or `getattr(vmcp_sdk, "tool_name")`
 
 4. Tool execution errors:
    - Check tool parameters match the schema
@@ -684,8 +752,9 @@ If you encounter issues:
 
 Remember: You are a coding agent. 
 
-Use execute_python to run SDK code for programmatic workflows:
-- Import vmcp_sdk and create workflows
+Use execute_bash to run Python scripts for SDK automation:
+- Create Python scripts with vmcp_sdk imports
+- Run scripts with: execute_bash(command=".venv/bin/python script.py")
 - Combine multiple tools into reusable scripts
 - Save scripts in ~/.vmcp/{vmcp_id} for future use
 """
@@ -1162,27 +1231,35 @@ async def execute_bash(command: str, timeout: int = 30):
         - success: Boolean indicating if command succeeded
     \"\"\"
     # Initialize sandbox config
+    # Use deny-by-default (whitelist) approach - only allow sandbox directory + minimal system paths
+    # This matches the Seatbelt profile pattern: (deny default) then allow specific paths
+    sandbox_dir_str = str(SANDBOX_DIR)
+    
+    # Allow reads only from:
+    # 1. The sandbox directory itself
+    # 2. Minimal system paths needed for the process to run
+    allow_read_paths = [
+        sandbox_dir_str,
+        "/usr/lib",           # System libraries (Linux/macOS)
+        "/System/Library",    # macOS system libraries
+        "/Library/Frameworks", # macOS frameworks
+        "/usr/bin",           # System binaries (needed for Python, etc.)
+        "/bin",               # Core system binaries
+        "/lib",               # Core system libraries
+        "/lib64",             # 64-bit libraries (Linux)
+    ]
+    
     sandbox_config = SandboxRuntimeConfig.from_json({{
         "network": {{
             "allowedDomains": [],
             "deniedDomains": []
         }},
         "filesystem": {{
-            "denyRead": [
-                "~/.ssh",
-                "~/.aws",
-                "~/.kube",
-                "~/.config/gcloud"
-            ],
+            "allowRead": allow_read_paths,
             "allowWrite": [
-                str(SANDBOX_DIR),
-                "."
+                sandbox_dir_str
             ],
-            "denyWrite": [
-                ".env",
-                "*.key",
-                "*.pem"
-            ]
+            "denyWrite": []
         }}
     }})
     
@@ -1197,9 +1274,7 @@ async def execute_bash(command: str, timeout: int = 30):
         # Mount sandbox directory as /root so it appears as /root/ to the LLM
         sandboxed_command = await SandboxManager.wrap_with_sandbox(
             command,
-            bin_shell="bash",
-            root_mount_path=str(SANDBOX_DIR),
-            root_mount_target="/root"
+            bin_shell="bash"
         )
         
         # Execute the sandboxed command
@@ -1240,7 +1315,6 @@ async def execute_bash(command: str, timeout: int = 30):
             "stderr": stderr_str,
             "returncode": process.returncode or 0,
             "success": process.returncode == 0,
-            "sandbox_dir": "/root"  # Show /root instead of actual path
         }}
     except Exception as e:
         return {{
@@ -1307,27 +1381,35 @@ async def execute_python(code: str, timeout: int = 30):
         - success: Boolean indicating if execution succeeded
     \"\"\"
     # Initialize sandbox config
+    # Use deny-by-default (whitelist) approach - only allow sandbox directory + minimal system paths
+    # This matches the Seatbelt profile pattern: (deny default) then allow specific paths
+    sandbox_dir_str = str(SANDBOX_DIR)
+    
+    # Allow reads only from:
+    # 1. The sandbox directory itself
+    # 2. Minimal system paths needed for the process to run
+    allow_read_paths = [
+        sandbox_dir_str,
+        "/usr/lib",           # System libraries (Linux/macOS)
+        "/System/Library",    # macOS system libraries
+        "/Library/Frameworks", # macOS frameworks
+        "/usr/bin",           # System binaries (needed for Python, etc.)
+        "/bin",               # Core system binaries
+        "/lib",               # Core system libraries
+        "/lib64",             # 64-bit libraries (Linux)
+    ]
+    
     sandbox_config = SandboxRuntimeConfig.from_json({{
         "network": {{
             "allowedDomains": [],
             "deniedDomains": []
         }},
         "filesystem": {{
-            "denyRead": [
-                "~/.ssh",
-                "~/.aws",
-                "~/.kube",
-                "~/.config/gcloud"
-            ],
+            "allowRead": allow_read_paths,
             "allowWrite": [
-                str(SANDBOX_DIR),
-                "."
+                sandbox_dir_str
             ],
-            "denyWrite": [
-                ".env",
-                "*.key",
-                "*.pem"
-            ]
+            "denyWrite": []
         }}
     }})
     
@@ -1354,9 +1436,7 @@ async def execute_python(code: str, timeout: int = 30):
         command = f"{{venv_python}} {{temp_file.name}}"
         sandboxed_command = await SandboxManager.wrap_with_sandbox(
             command,
-            bin_shell="bash",
-            root_mount_path=str(SANDBOX_DIR),
-            root_mount_target="/root"
+            bin_shell="bash"
         )
         
         # Execute the sandboxed command
@@ -1397,7 +1477,6 @@ async def execute_python(code: str, timeout: int = 30):
             "stderr": stderr_str,
             "returncode": process.returncode or 0,
             "success": process.returncode == 0,
-            "sandbox_dir": "/root"  # Show /root instead of actual path
         }}
     except Exception as e:
         return {{

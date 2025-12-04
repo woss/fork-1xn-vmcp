@@ -136,6 +136,11 @@ class FilesystemConfig(BaseModel):
         alias="denyRead",
         description="Paths denied for reading",
     )
+    allow_read: list[str] = Field(
+        default_factory=list,
+        alias="allowRead",
+        description="Paths allowed for reading",
+    )
     allow_write: list[str] = Field(
         default_factory=list,
         alias="allowWrite",
@@ -147,7 +152,7 @@ class FilesystemConfig(BaseModel):
         description="Paths denied for writing (takes precedence over allowWrite)",
     )
 
-    @field_validator("deny_read", "allow_write", "deny_write", mode="before")
+    @field_validator("deny_read", "allow_read", "allow_write", "deny_write", mode="before")
     @classmethod
     def validate_paths(cls, v):
         """Validate that paths are not empty."""

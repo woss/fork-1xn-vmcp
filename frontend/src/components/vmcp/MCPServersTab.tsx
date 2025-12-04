@@ -579,7 +579,9 @@ export default function MCPServersTab({
         <div>
           <div className="flex items-start gap-2 mb-3">
           <FaviconIcon
-              url={server.url || undefined}
+
+              url={server.url ?? undefined}
+              faviconUrl={undefined}
               className="h-8 w-8"
               size={32}
           />
@@ -755,7 +757,7 @@ export default function MCPServersTab({
             const serversFromContext = servers.filter(server => {
               // Filter out servers that are already added to this vMCP
               const isAlreadyInVMCP = vmcpConfig.vmcp_config.selected_servers?.some(
-                selectedServer => selectedServer.server_id === server.server_id
+                selectedServer => selectedServer.server_id === server.id
               );
               return !isAlreadyInVMCP; // Only show servers not already in this vMCP
             });

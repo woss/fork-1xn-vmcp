@@ -50,12 +50,12 @@ export function MCPServersDiscovery({
         await onAddServer(serverData);
       } else {
         // Use the install function from servers context
-        if (serverData.id) {
-          await installMCPRegistryServer(serverData.id);
-          success(`Successfully installed ${serverData.name}`);
-        } else {
-          toastError('Server ID is missing');
+        if (!serverData.id) {
+          toastError('Server ID is required');
+          return;
         }
+        await installMCPRegistryServer(serverData.id);
+        success(`Successfully installed ${serverData.name}`);
       }
     } catch (error) {
       toastError('Failed to add MCP server');
