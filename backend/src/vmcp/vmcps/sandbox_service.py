@@ -1079,6 +1079,51 @@ Use execute_bash to run Python scripts for SDK automation:
         "openpyxl",          # Excel file reading/writing
     ]
 
+    def _ensure_pip_installed(self, venv_python: Path) -> bool:
+        """
+        Ensure pip is installed in the virtual environment.
+        
+        Args:
+            venv_python: Path to the Python executable in the venv
+            
+        Returns:
+            True if pip is available, False otherwise
+        """
+        try:
+            # Check if pip is already available
+            result = subprocess.run(
+                [str(venv_python), "-m", "pip", "--version"],
+                capture_output=True,
+                text=True,
+                timeout=10
+            )
+            if result.returncode == 0:
+                logger.debug("pip is already available in venv")
+                return True
+            
+            # If pip is not available, install it using ensurepip
+            logger.info("Installing pip in virtual environment")
+            result = subprocess.run(
+                [str(venv_python), "-m", "ensurepip", "--upgrade"],
+                capture_output=True,
+                text=True,
+                timeout=60
+            )
+            
+            if result.returncode != 0:
+                logger.error(f"Failed to install pip: {result.stderr}")
+                return False
+            
+            logger.info("Successfully installed pip in virtual environment")
+            return True
+            
+        except subprocess.TimeoutExpired:
+            logger.error("Timeout installing pip")
+            return False
+        except Exception as e:
+            logger.error(f"Error ensuring pip is installed: {e}", exc_info=True)
+            return False
+
     def _install_default_packages(self, venv_python: Path, uv_cmd: Optional[str] = None) -> bool:
         """
         Install default packages in the sandbox virtual environment.
@@ -1167,7 +1212,7 @@ Use execute_bash to run Python scripts for SDK automation:
                 if result.returncode != 0:
                     logger.error(f"Failed to create venv: {result.stderr}")
                     return False
-            
+
             logger.info(f"Created virtual environment: {venv_path}")
             
             # Get project root
@@ -1179,6 +1224,11 @@ Use execute_bash to run Python scripts for SDK automation:
             
             if not venv_python.exists():
                 logger.error(f"Python executable not found in venv: {venv_path}")
+                return False
+            
+            # Ensure pip is installed in the virtual environment
+            if not self._ensure_pip_installed(venv_python):
+                logger.error("Failed to ensure pip is installed in venv")
                 return False
             
             # Install sandbox-runtime-py
@@ -1297,6 +1347,11 @@ Use execute_bash to run Python scripts for SDK automation:
             
             if not venv_python.exists():
                 logger.error(f"Python executable not found in venv: {venv_path}")
+                return False
+            
+            # Ensure pip is installed in the virtual environment
+            if not self._ensure_pip_installed(venv_python):
+                logger.error("Failed to ensure pip is installed in venv")
                 return False
             
             # Install sandbox-runtime-py
