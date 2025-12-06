@@ -1187,25 +1187,22 @@ Use execute_bash to run Python scripts for SDK automation:
             logger.error(f"Error deleting sandbox for {vmcp_id}: {e}", exc_info=True)
             return False
     
-    def get_sandbox_tools(self, vmcp_id: str) -> List[Dict[str, Any]]:
+    def _get_execute_python_tool(self, sandbox_path_str: str) -> Dict[str, Any]:
         """
-        Get sandbox tool definitions to inject into vMCP.
+        Get execute_python tool definition (not surfaced, but kept for reference).
         
         Args:
-            vmcp_id: The vMCP ID
+            sandbox_path_str: String path to sandbox directory
             
         Returns:
-            List of tool definitions
+            Tool definition dictionary
         """
-        sandbox_path = str(self.get_sandbox_path(vmcp_id))
-        
-        return [
-            {
-                "name": "execute_bash",
-                "description": "TO RUN BASH TOOLS ALWAYS USE THIS TOOL. DO NOT EXECUTE BASH COMMANDS DIRECTLY. Execute a bash command in a sandboxed environment.",
-                "text": f"The command will be executed in a sandboxed environment. The sandbox directory appears as /root/ to the LLM (e.g., 'pwd' returns /root). The actual sandbox is located at {sandbox_path} with filesystem and network restrictions applied. The sandbox prevents access to sensitive directories like ~/.ssh, ~/.aws, and restricts network access.",
-                "tool_type": "python",
-                "code": f"""
+        return {
+            "name": "execute_python",
+            "description": "Execute Python code in a sandboxed environment.",
+            "text": f"The Python code will be executed in a sandboxed environment. The sandbox directory appears as /root/ to the LLM (e.g., 'os.getcwd()' returns /root). The actual sandbox is located at {sandbox_path_str} with filesystem and network restrictions applied. The sandbox prevents access to sensitive directories and restricts network access.",
+            "tool_type": "python",
+            "code": f"""
 import asyncio
 import os
 import subprocess
@@ -1213,157 +1210,7 @@ from pathlib import Path
 from sandbox_runtime import SandboxManager
 from sandbox_runtime.config.schemas import SandboxRuntimeConfig
 
-SANDBOX_DIR = Path("{sandbox_path}")
-
-async def execute_bash(command: str, timeout: int = 30):
-    \"\"\"
-    Execute a bash command in a sandboxed environment.
-    
-    Args:
-        command: The bash command to execute (e.g., "ls -la", "echo 'hello'")
-        timeout: Maximum execution time in seconds (default: 30)
-        
-    Returns:
-        A dictionary containing:
-        - stdout: Standard output from the command
-        - stderr: Standard error output (may include sandbox violation info)
-        - returncode: Exit code of the command (0 = success)
-        - success: Boolean indicating if command succeeded
-    \"\"\"
-    # Initialize sandbox config
-    # Use deny-by-default (whitelist) approach - only allow sandbox directory + minimal system paths
-    # This matches the Seatbelt profile pattern: (deny default) then allow specific paths
-    sandbox_dir_str = str(SANDBOX_DIR)
-    
-    # Allow reads only from:
-    # 1. The sandbox directory itself
-    # 2. Minimal system paths needed for the process to run
-    allow_read_paths = [
-        sandbox_dir_str,
-        "/usr/lib",           # System libraries (Linux/macOS)
-        "/System/Library",    # macOS system libraries
-        "/Library/Frameworks", # macOS frameworks
-        "/usr/bin",           # System binaries (needed for Python, etc.)
-        "/bin",               # Core system binaries
-        "/lib",               # Core system libraries
-        "/lib64",             # 64-bit libraries (Linux)
-    ]
-    
-    sandbox_config = SandboxRuntimeConfig.from_json({{
-        "network": {{
-            "allowedDomains": [],
-            "deniedDomains": []
-        }},
-        "filesystem": {{
-            "allowRead": allow_read_paths,
-            "allowWrite": [
-                sandbox_dir_str
-            ],
-            "denyWrite": []
-        }}
-    }})
-    
-    await SandboxManager.initialize(sandbox_config)
-    
-    # Change to sandbox directory
-    original_cwd = os.getcwd()
-    os.chdir(str(SANDBOX_DIR))
-    
-    try:
-        # Wrap command with sandbox restrictions
-        # Mount sandbox directory as /root so it appears as /root/ to the LLM
-        sandboxed_command = await SandboxManager.wrap_with_sandbox(
-            command,
-            bin_shell="bash"
-        )
-        
-        # Execute the sandboxed command
-        # Note: cwd is still SANDBOX_DIR, but inside the sandbox it appears as /root
-        process = await asyncio.create_subprocess_shell(
-            sandboxed_command,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-            cwd=str(SANDBOX_DIR)
-        )
-        
-        try:
-            stdout, stderr = await asyncio.wait_for(
-                process.communicate(),
-                timeout=timeout
-            )
-        except asyncio.TimeoutError:
-            process.kill()
-            await process.wait()
-            return {{
-                "stdout": "",
-                "stderr": f"Command timed out after {{timeout}} seconds",
-                "returncode": -1,
-                "success": False
-            }}
-        
-        stdout_str = stdout.decode("utf-8", errors="replace")
-        stderr_str = stderr.decode("utf-8", errors="replace")
-        
-        # Annotate stderr with sandbox violations if any
-        stderr_str = SandboxManager.annotate_stderr_with_sandbox_failures(
-            command,
-            stderr_str
-        )
-        
-        return {{
-            "stdout": stdout_str,
-            "stderr": stderr_str,
-            "returncode": process.returncode or 0,
-            "success": process.returncode == 0,
-        }}
-    except Exception as e:
-        return {{
-            "stdout": "",
-            "stderr": f"Error executing command: {{str(e)}}",
-            "returncode": -1,
-            "success": False
-        }}
-    finally:
-        os.chdir(original_cwd)
-
-def main(command: str, timeout: int = 30):
-    \"\"\"
-    Synchronous wrapper for execute_bash.
-    This is called by the Python tool executor.
-    \"\"\"
-    return asyncio.run(execute_bash(command, timeout))
-""",
-                "variables": [
-                    {
-                        "name": "command",
-                        "description": "The bash command to execute",
-                        "required": True,
-                        "type": "str"
-                    },
-                    {
-                        "name": "timeout",
-                        "description": "Maximum execution time in seconds",
-                        "required": False,
-                        "type": "int"
-                    }
-                ],
-                "environment_variables": [],
-                "tool_calls": []
-            },
-            {
-                "name": "execute_python",
-                "description": "Execute Python code in a sandboxed environment.",
-                "text": f"The Python code will be executed in a sandboxed environment. The sandbox directory appears as /root/ to the LLM (e.g., 'os.getcwd()' returns /root). The actual sandbox is located at {sandbox_path} with filesystem and network restrictions applied. The sandbox prevents access to sensitive directories and restricts network access.",
-                "tool_type": "python",
-                "code": f"""
-import asyncio
-import os
-import subprocess
-from pathlib import Path
-from sandbox_runtime import SandboxManager
-from sandbox_runtime.config.schemas import SandboxRuntimeConfig
-
-SANDBOX_DIR = Path("{sandbox_path}")
+SANDBOX_DIR = Path("{sandbox_path_str}")
 
 async def execute_python(code: str, timeout: int = 30):
     \"\"\"
@@ -1500,10 +1347,178 @@ def main(code: str, timeout: int = 30):
     \"\"\"
     return asyncio.run(execute_python(code, timeout))
 """,
+            "variables": [
+                {
+                    "name": "code",
+                    "description": "The Python code to execute",
+                    "required": True,
+                    "type": "str"
+                },
+                {
+                    "name": "timeout",
+                    "description": "Maximum execution time in seconds",
+                    "required": False,
+                    "type": "int"
+                }
+            ],
+            "environment_variables": [],
+            "tool_calls": []
+        }
+
+    def get_sandbox_tools(self, vmcp_id: str) -> List[Dict[str, Any]]:
+        """
+        Get sandbox tool definitions to inject into vMCP.
+        Includes base tools (execute_bash) and dynamically discovered tools.
+        Note: execute_python tool is kept in _get_execute_python_tool() but not surfaced.
+        
+        Args:
+            vmcp_id: The vMCP ID
+            
+        Returns:
+            List of tool definitions
+        """
+        sandbox_path = self.get_sandbox_path(vmcp_id)
+        sandbox_path_str = str(sandbox_path)
+        
+        # Base sandbox tools (execute_python is not included but kept in _get_execute_python_tool())
+        base_tools = [
+            {
+                "name": "execute_bash",
+                "description": "TO RUN BASH TOOLS ALWAYS USE THIS TOOL. DO NOT EXECUTE BASH COMMANDS DIRECTLY. Execute a bash command in a sandboxed environment.",
+                "text": f"The command will be executed in a sandboxed environment. The sandbox directory appears as /root/ to the LLM (e.g., 'pwd' returns /root). The actual sandbox is located at {sandbox_path_str} with filesystem and network restrictions applied. The sandbox prevents access to sensitive directories like ~/.ssh, ~/.aws, and restricts network access.",
+                "tool_type": "python",
+                "code": f"""
+import asyncio
+import os
+import subprocess
+from pathlib import Path
+from sandbox_runtime import SandboxManager
+from sandbox_runtime.config.schemas import SandboxRuntimeConfig
+
+SANDBOX_DIR = Path("{sandbox_path_str}")
+
+async def execute_bash(command: str, timeout: int = 30):
+    \"\"\"
+    Execute a bash command in a sandboxed environment.
+    
+    Args:
+        command: The bash command to execute (e.g., "ls -la", "echo 'hello'")
+        timeout: Maximum execution time in seconds (default: 30)
+        
+    Returns:
+        A dictionary containing:
+        - stdout: Standard output from the command
+        - stderr: Standard error output (may include sandbox violation info)
+        - returncode: Exit code of the command (0 = success)
+        - success: Boolean indicating if command succeeded
+    \"\"\"
+    # Initialize sandbox config
+    # Use deny-by-default (whitelist) approach - only allow sandbox directory + minimal system paths
+    # This matches the Seatbelt profile pattern: (deny default) then allow specific paths
+    sandbox_dir_str = str(SANDBOX_DIR)
+    
+    # Allow reads only from:
+    # 1. The sandbox directory itself
+    # 2. Minimal system paths needed for the process to run
+    allow_read_paths = [
+        sandbox_dir_str,
+        "/usr/lib",           # System libraries (Linux/macOS)
+        "/System/Library",    # macOS system libraries
+        "/Library/Frameworks", # macOS frameworks
+        "/usr/bin",           # System binaries (needed for Python, etc.)
+        "/bin",               # Core system binaries
+        "/lib",               # Core system libraries
+        "/lib64",             # 64-bit libraries (Linux)
+    ]
+    
+    sandbox_config = SandboxRuntimeConfig.from_json({{
+        "network": {{
+            "allowedDomains": [],
+            "deniedDomains": []
+        }},
+        "filesystem": {{
+            "allowRead": allow_read_paths,
+            "allowWrite": [
+                sandbox_dir_str
+            ],
+            "denyWrite": []
+        }}
+    }})
+    
+    await SandboxManager.initialize(sandbox_config)
+    
+    # Change to sandbox directory
+    original_cwd = os.getcwd()
+    os.chdir(str(SANDBOX_DIR))
+    
+    try:
+        # Wrap command with sandbox restrictions
+        # Mount sandbox directory as /root so it appears as /root/ to the LLM
+        sandboxed_command = await SandboxManager.wrap_with_sandbox(
+            command,
+            bin_shell="bash"
+        )
+        
+        # Execute the sandboxed command
+        # Note: cwd is still SANDBOX_DIR, but inside the sandbox it appears as /root
+        process = await asyncio.create_subprocess_shell(
+            sandboxed_command,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+            cwd=str(SANDBOX_DIR)
+        )
+        
+        try:
+            stdout, stderr = await asyncio.wait_for(
+                process.communicate(),
+                timeout=timeout
+            )
+        except asyncio.TimeoutError:
+            process.kill()
+            await process.wait()
+            return {{
+                "stdout": "",
+                "stderr": f"Command timed out after {{timeout}} seconds",
+                "returncode": -1,
+                "success": False
+            }}
+        
+        stdout_str = stdout.decode("utf-8", errors="replace")
+        stderr_str = stderr.decode("utf-8", errors="replace")
+        
+        # Annotate stderr with sandbox violations if any
+        stderr_str = SandboxManager.annotate_stderr_with_sandbox_failures(
+            command,
+            stderr_str
+        )
+        
+        return {{
+            "stdout": stdout_str,
+            "stderr": stderr_str,
+            "returncode": process.returncode or 0,
+            "success": process.returncode == 0,
+        }}
+    except Exception as e:
+        return {{
+            "stdout": "",
+            "stderr": f"Error executing command: {{str(e)}}",
+            "returncode": -1,
+            "success": False
+        }}
+    finally:
+        os.chdir(original_cwd)
+
+def main(command: str, timeout: int = 30):
+    \"\"\"
+    Synchronous wrapper for execute_bash.
+    This is called by the Python tool executor.
+    \"\"\"
+    return asyncio.run(execute_bash(command, timeout))
+""",
                 "variables": [
                     {
-                        "name": "code",
-                        "description": "The Python code to execute",
+                        "name": "command",
+                        "description": "The bash command to execute",
                         "required": True,
                         "type": "str"
                     },
@@ -1518,14 +1533,25 @@ def main(code: str, timeout: int = 30):
                 "tool_calls": []
             }
         ]
+        
+        # Discover dynamic tools from vmcp_tools/ directory
+        try:
+            registry = SandboxToolRegistry(sandbox_path, vmcp_id)
+            discovered_tools = registry.discover_tools()
+            base_tools.extend(discovered_tools)
+            logger.debug(f"Discovered {len(discovered_tools)} tools from sandbox for {vmcp_id}")
+        except Exception as e:
+            logger.warning(f"Failed to discover sandbox tools for {vmcp_id}: {e}")
+        
+        return base_tools
     
     def get_sandbox_prompt(self, vmcp_id: str, vmcp_config=None) -> str:
         """
         Get sandbox setup prompt to inject into vMCP.
         
-        Returns different prompts based on progressive discovery setting:
+        Returns different prompts based on configuration:
         - If progressive discovery is enabled: Returns prompt with CLI instructions
-        - If progressive discovery is disabled: Returns SDK-only prompt
+        - Otherwise: Returns SDK-only prompt
         
         Args:
             vmcp_id: The vMCP ID
@@ -1541,13 +1567,312 @@ def main(code: str, timeout: int = 30):
             if isinstance(metadata, dict):
                 progressive_discovery_enabled = metadata.get('progressive_discovery_enabled', False) is True
         
-        # Return appropriate prompt
+        # Select prompt based on progressive discovery setting
         if progressive_discovery_enabled:
             prompt = self.SETUP_PROMPT_PROGRESSIVE_DISCOVERY
         else:
             prompt = self.SETUP_PROMPT_SDK_ONLY
         
         return prompt.replace("{vmcp_id}", vmcp_id)
+
+
+class SandboxToolRegistry:
+    """
+    Discovers and manages Python scripts from sandbox as dynamic tools.
+    Tools are stored in vmcp_tools/ directory and discovered on-demand.
+    """
+    
+    def __init__(self, sandbox_path: Path, vmcp_id: str):
+        self.sandbox_path = sandbox_path
+        self.vmcp_id = vmcp_id
+        self.tools_dir = sandbox_path / "vmcp_tools"
+        self.registry_file = sandbox_path / "vmcp_tool_registry.json"
+    
+    def ensure_tools_directory(self) -> None:
+        """Create tools directory if it doesn't exist."""
+        self.tools_dir.mkdir(parents=True, exist_ok=True)
+    
+    def discover_tools(self) -> List[Dict[str, Any]]:
+        """
+        Scan vmcp_tools/ directory for Python scripts and convert to tool definitions.
+        
+        Returns:
+            List of tool definition dictionaries compatible with custom_tools format
+        """
+        self.ensure_tools_directory()
+        tools = []
+        
+        # Load registry for metadata (name, description overrides)
+        registry = self._load_registry()
+        
+        # Scan for Python scripts
+        for script_file in sorted(self.tools_dir.glob("*.py")):
+            tool_def = self._parse_script_as_tool(script_file, registry)
+            if tool_def:
+                tools.append(tool_def)
+        
+        return tools
+    
+    def _load_registry(self) -> Dict[str, Any]:
+        """Load tool registry JSON file with metadata."""
+        if not self.registry_file.exists():
+            return {}
+        
+        try:
+            import json
+            with open(self.registry_file, 'r') as f:
+                return json.load(f)
+        except Exception as e:
+            logger.warning(f"Failed to load tool registry: {e}")
+            return {}
+    
+    def _save_registry(self, registry: Dict[str, Any]) -> None:
+        """Save tool registry JSON file."""
+        import json
+        with open(self.registry_file, 'w') as f:
+            json.dump(registry, f, indent=2)
+    
+    def _parse_script_as_tool(
+        self, 
+        script_path: Path, 
+        registry: Dict[str, Any]
+    ) -> Optional[Dict[str, Any]]:
+        """
+        Parse Python script to extract tool definition.
+        
+        Looks for:
+        - main() function with type hints for parameters
+        - Docstring for description
+        - Registry metadata for name/description overrides
+        
+        Returns:
+            Tool definition dict or None if script is invalid
+        """
+        try:
+            import ast
+            
+            # Read script content
+            script_content = script_path.read_text(encoding='utf-8')
+            
+            # Parse AST to find main function
+            tree = ast.parse(script_content)
+            
+            main_func = None
+            for node in ast.walk(tree):
+                if isinstance(node, ast.FunctionDef) and node.name == 'main':
+                    main_func = node
+                    break
+            
+            if not main_func:
+                logger.debug(f"No main() function found in {script_path.name}")
+                return None
+            
+            # Extract function signature
+            tool_name = script_path.stem  # filename without .py
+            description = ast.get_docstring(main_func) or f"Tool: {tool_name}"
+            
+            # Check registry for overrides
+            if tool_name in registry:
+                if 'name' in registry[tool_name]:
+                    tool_name = registry[tool_name]['name']
+                if 'description' in registry[tool_name]:
+                    description = registry[tool_name]['description']
+            
+            # Extract parameters from function signature
+            variables = []
+            required_params = []
+            
+            for arg in main_func.args.args:
+                if arg.arg == 'self':
+                    continue
+                
+                param_name = arg.arg
+                param_type = 'str'  # default
+                
+                # Extract type hint if available
+                if arg.annotation:
+                    if isinstance(arg.annotation, ast.Name):
+                        type_name = arg.annotation.id
+                        type_mapping = {
+                            'str': 'str',
+                            'int': 'int',
+                            'float': 'float',
+                            'bool': 'bool',
+                            'list': 'list',
+                            'dict': 'dict'
+                        }
+                        param_type = type_mapping.get(type_name, 'str')
+                
+                # Check if has default (optional parameter)
+                has_default = len(main_func.args.defaults) > 0 and \
+                             len(main_func.args.args) - len(main_func.args.defaults) <= \
+                             main_func.args.args.index(arg)
+                
+                if not has_default:
+                    required_params.append(param_name)
+                
+                variables.append({
+                    'name': param_name,
+                    'description': f"Parameter: {param_name}",
+                    'type': param_type,
+                    'required': not has_default
+                })
+            
+            # Create tool definition
+            # Read full script content for code field
+            tool_def = {
+                'name': f"sandbox_tool_{tool_name}",
+                'description': description,
+                'tool_type': 'python',
+                'code': script_content,  # Full script content
+                'variables': variables,
+                'environment_variables': [],
+                'tool_calls': [],
+                'meta': {
+                    'source': 'sandbox_discovered',
+                    'script_path': str(script_path.relative_to(self.sandbox_path)),
+                    'vmcp_id': self.vmcp_id
+                }
+            }
+            
+            return tool_def
+            
+        except Exception as e:
+            logger.warning(f"Failed to parse script {script_path}: {e}")
+            return None
+    
+    def register_tool_metadata(
+        self, 
+        tool_name: str, 
+        name: Optional[str] = None,
+        description: Optional[str] = None
+    ) -> bool:
+        """
+        Register metadata for a tool (name/description overrides).
+        Updates vmcp_tool_registry.json.
+        """
+        registry = self._load_registry()
+        
+        if tool_name not in registry:
+            registry[tool_name] = {}
+        
+        if name:
+            registry[tool_name]['name'] = name
+        if description:
+            registry[tool_name]['description'] = description
+        
+        self._save_registry(registry)
+        return True
+
+
+class WorkflowManager:
+    """
+    Manages scheduled workflows in sandbox.
+    Workflows are Python scripts stored in vmcp_workflows/ directory.
+    Schedule is stored in vmcp_workflow_schedule.json.
+    """
+    
+    def __init__(self, sandbox_path: Path, vmcp_id: str):
+        self.sandbox_path = sandbox_path
+        self.vmcp_id = vmcp_id
+        self.workflows_dir = sandbox_path / "vmcp_workflows"
+        self.schedule_file = sandbox_path / "vmcp_workflow_schedule.json"
+    
+    def ensure_workflows_directory(self) -> None:
+        """Create workflows directory if it doesn't exist."""
+        self.workflows_dir.mkdir(parents=True, exist_ok=True)
+    
+    def register_workflow(
+        self,
+        script_path: str,
+        schedule: str,
+        workflow_name: Optional[str] = None,
+        enabled: bool = True
+    ) -> bool:
+        """
+        Register a workflow script with schedule.
+        
+        Args:
+            script_path: Path to Python script (relative to sandbox or absolute)
+            schedule: Schedule expression - "once", "hourly", "daily", or cron expression
+            workflow_name: Optional name for workflow (defaults to script filename)
+            enabled: Whether workflow is enabled
+        
+        Returns:
+            True if successful
+        """
+        self.ensure_workflows_directory()
+        
+        # Resolve script path
+        script_file = Path(script_path)
+        if not script_file.is_absolute():
+            script_file = self.sandbox_path / script_path
+        
+        if not script_file.exists():
+            raise FileNotFoundError(f"Workflow script not found: {script_path}")
+        
+        # Copy script to workflows directory
+        workflow_filename = script_file.name
+        target_path = self.workflows_dir / workflow_filename
+        
+        import shutil
+        shutil.copy2(script_file, target_path)
+        
+        # Use provided name or derive from filename
+        if not workflow_name:
+            workflow_name = script_file.stem
+        
+        # Load schedule
+        schedule_data = self._load_schedule()
+        
+        # Add/update workflow in schedule
+        workflow_id = f"{self.vmcp_id}_{workflow_name}"
+        from datetime import datetime
+        schedule_data[workflow_id] = {
+            'vmcp_id': self.vmcp_id,
+            'workflow_name': workflow_name,
+            'script_path': str(target_path.relative_to(self.sandbox_path)),
+            'schedule': schedule,
+            'enabled': enabled,
+            'created_at': datetime.now().isoformat(),
+            'last_run': None,
+            'next_run': None
+        }
+        
+        self._save_schedule(schedule_data)
+        logger.info(f"Registered workflow: {workflow_name} with schedule: {schedule}")
+        return True
+    
+    def list_workflows(self) -> List[Dict[str, Any]]:
+        """List all registered workflows."""
+        schedule_data = self._load_schedule()
+        
+        # Filter workflows for this vmcp_id
+        workflows = []
+        for _workflow_id, workflow_data in schedule_data.items():
+            if workflow_data.get('vmcp_id') == self.vmcp_id:
+                workflows.append(workflow_data)
+        
+        return workflows
+    
+    def _load_schedule(self) -> Dict[str, Any]:
+        """Load workflow schedule JSON file."""
+        if not self.schedule_file.exists():
+            return {}
+        
+        try:
+            import json
+            with open(self.schedule_file, 'r') as f:
+                return json.load(f)
+        except Exception as e:
+            logger.warning(f"Failed to load workflow schedule: {e}")
+            return {}
+    
+    def _save_schedule(self, schedule: Dict[str, Any]) -> None:
+        """Save workflow schedule JSON file."""
+        import json
+        with open(self.schedule_file, 'w') as f:
+            json.dump(schedule, f, indent=2)
 
 
 # Singleton instance

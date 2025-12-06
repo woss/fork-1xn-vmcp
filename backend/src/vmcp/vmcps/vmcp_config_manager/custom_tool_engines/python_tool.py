@@ -191,10 +191,26 @@ async def execute_python_tool(
     converted_arguments = convert_arguments_to_types(arguments, all_variables)
     logger.info(f"🔍 PYTHON_TOOL: Converted arguments: {converted_arguments}")
 
+    # Check if this is a sandbox-discovered tool
+    tool_meta = custom_tool.get('meta', {})
+    is_sandbox_discovered = tool_meta.get('source') == 'sandbox_discovered'
+    script_path = tool_meta.get('script_path')
+    
+    # For sandbox-discovered tools, execute in sandbox environment
+    if is_sandbox_discovered and vmcp_id and script_path:
+        from .sandbox_tool import execute_sandbox_discovered_tool
+        return await execute_sandbox_discovered_tool(
+            vmcp_id=vmcp_id,
+            script_path=script_path,
+            arguments=converted_arguments,
+            environment_variables=environment_variables,
+            tool_as_prompt=tool_as_prompt
+        )
+
     # Determine which Python executable to use
-    # For sandbox tools (execute_bash, execute_python), use the sandbox's venv Python
+    # For sandbox tools (execute_bash), use the sandbox's venv Python
     tool_name = custom_tool.get('name', '')
-    is_sandbox_tool = tool_name in ('execute_bash', 'execute_python')
+    is_sandbox_tool = tool_name in ('execute_bash',)
     python_executable = sys.executable
     
     if is_sandbox_tool and vmcp_id:

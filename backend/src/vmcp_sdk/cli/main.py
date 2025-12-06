@@ -7,6 +7,7 @@ associated with the current sandbox (detected from .vmcp-config.json).
 
 import json
 import sys
+from typing import Optional
 
 import typer
 from rich.console import Console
@@ -65,6 +66,7 @@ def main_callback(
 def list_tools():
     """
     List all tools available in the sandbox's vMCP.
+    Includes MCP server tools and sandbox-discovered tools.
     
     Example:
         vmcp-sdk list-tools
@@ -77,24 +79,63 @@ def list_tools():
             console.print("[yellow]No tools found in the current vMCP.[/yellow]")
             return
         
-        table = Table(title="Tools in Current vMCP", show_header=True, header_style="bold cyan")
-        table.add_column("Name", style="cyan")
-        table.add_column("Python Name", style="green")
-        table.add_column("Description", style="white")
+        # Separate sandbox tools from others
+        sandbox_tools = []
+        other_tools = []
+        
+        for tool in tools:
+            tool_dict = tool if isinstance(tool, dict) else tool.model_dump() if hasattr(tool, 'model_dump') else {}
+            meta = tool_dict.get('meta', {})
+            if meta.get('source') == 'sandbox_discovered':
+                sandbox_tools.append(tool)
+            else:
+                other_tools.append(tool)
         
         from ..schema import normalize_name
         
-        for tool in tools:
-            tool_name = tool.get("name", "") if isinstance(tool, dict) else getattr(tool, "name", str(tool))
-            python_name = normalize_name(tool_name)
-            tool_desc = tool.get("description", "") if isinstance(tool, dict) else getattr(tool, "description", "")
-            table.add_row(
-                tool_name,
-                python_name,
-                (tool_desc or "")[:80] + "..." if len(tool_desc or "") > 80 else (tool_desc or "")
-            )
+        # Show other tools first
+        if other_tools:
+            table = Table(title="MCP Server Tools", show_header=True, header_style="bold cyan")
+            table.add_column("Name", style="cyan")
+            table.add_column("Python Name", style="green")
+            table.add_column("Description", style="white")
+            
+            for tool in other_tools:
+                tool_name = tool.get("name", "") if isinstance(tool, dict) else getattr(tool, "name", str(tool))
+                python_name = normalize_name(tool_name)
+                tool_desc = tool.get("description", "") if isinstance(tool, dict) else getattr(tool, "description", "")
+                table.add_row(
+                    tool_name,
+                    python_name,
+                    (tool_desc or "")[:80] + "..." if len(tool_desc or "") > 80 else (tool_desc or "")
+                )
+            
+            console.print(table)
+            console.print()
         
-        console.print(table)
+        # Show sandbox tools
+        if sandbox_tools:
+            table = Table(title="Sandbox-Discovered Tools", show_header=True, header_style="bold green")
+            table.add_column("Name", style="cyan")
+            table.add_column("Python Name", style="green")
+            table.add_column("Description", style="white")
+            table.add_column("Source", style="yellow")
+            
+            for tool in sandbox_tools:
+                tool_name = tool.get("name", "") if isinstance(tool, dict) else getattr(tool, "name", str(tool))
+                python_name = normalize_name(tool_name)
+                tool_desc = tool.get("description", "") if isinstance(tool, dict) else getattr(tool, "description", "")
+                meta = tool.get("meta", {}) if isinstance(tool, dict) else getattr(tool, "meta", {})
+                source = meta.get("script_path", "unknown")
+                
+                table.add_row(
+                    tool_name,
+                    python_name,
+                    (tool_desc or "")[:80] + "..." if len(tool_desc or "") > 80 else (tool_desc or ""),
+                    source
+                )
+            
+            console.print(table)
         
     except Exception as e:
         console.print(f"[red]Error listing tools: {e}[/red]")

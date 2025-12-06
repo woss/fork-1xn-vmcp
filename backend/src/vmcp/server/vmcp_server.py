@@ -86,10 +86,28 @@ async def lifespan(app: FastAPI):
     # Start the session manager task
     session_task = asyncio.create_task(run_session_manager())
 
+    # Start workflow scheduler
+    try:
+        from vmcp.vmcps.workflow_scheduler import get_workflow_scheduler
+        scheduler = get_workflow_scheduler()
+        await scheduler.start()
+        logger.info("[VMCPApiServer] Workflow scheduler started")
+    except Exception as e:
+        logger.warning(f"[VMCPApiServer] Failed to start workflow scheduler: {e}")
+
     try:
         logger.info("[VMCPApiServer] MCP session manager started")
         yield
     finally:
+        # Shutdown workflow scheduler
+        try:
+            from vmcp.vmcps.workflow_scheduler import get_workflow_scheduler
+            scheduler = get_workflow_scheduler()
+            await scheduler.stop()
+            logger.info("[VMCPApiServer] Workflow scheduler stopped")
+        except Exception as e:
+            logger.warning(f"[VMCPApiServer] Error stopping workflow scheduler: {e}")
+        
         logger.info("[VMCPApiServer] Shutting down MCP session manager...")
         # Note: stdio cleanup is now handled by VMCPSessionManager.run()
 
