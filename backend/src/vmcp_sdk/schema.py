@@ -175,8 +175,11 @@ def create_function_with_signature(
     properties = input_schema.get("properties", {})
     required = set(input_schema.get("required", []))
 
-    # Build parameter list for function signature
-    params = []
+    # Separate required and optional parameters
+    # Python requires all required parameters to come before optional ones
+    required_params = []
+    optional_params = []
+    
     for param_name, param_schema in properties.items():
         python_type = json_schema_to_python_type(param_schema)
 
@@ -188,6 +191,7 @@ def create_function_with_signature(
                 inspect.Parameter.POSITIONAL_OR_KEYWORD,
                 annotation=python_type
             )
+            required_params.append(param)
         else:
             # Optional parameter - use default if provided, otherwise None
             default = param_schema.get("default", None)
@@ -197,7 +201,10 @@ def create_function_with_signature(
                 default=default,
                 annotation=python_type
             )
-        params.append(param)
+            optional_params.append(param)
+    
+    # Combine: required first, then optional
+    params = required_params + optional_params
 
     # Create signature
     sig = inspect.Signature(

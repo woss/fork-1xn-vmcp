@@ -1305,6 +1305,37 @@ class ApiClient {
     }
   }
 
+  async deleteSandbox(vmcpId: string, token?: string): Promise<ApiResponse<{ success: boolean; message: string }>> {
+    try {
+      const config = client.getConfig();
+      const baseUrl = config.baseUrl || '';
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      };
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
+      const response = await fetch(`${baseUrl}/api/vmcps/${encodeURIComponent(vmcpId)}/sandbox/delete`, {
+        method: 'DELETE',
+        headers,
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ detail: response.statusText }));
+        throw new Error(errorData.detail || `HTTP ${response.status}`);
+      }
+
+      const data = await response.json();
+      return { success: true, data };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to delete sandbox',
+      };
+    }
+  }
+
   async getSandboxStatus(vmcpId: string, token?: string): Promise<ApiResponse<{ enabled: boolean; path: string; venv_exists: boolean; folder_exists: boolean }>> {
     try {
       const config = client.getConfig();

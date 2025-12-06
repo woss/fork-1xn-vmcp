@@ -57,8 +57,33 @@ Common operations:
 - Find files: execute_bash(command="find . -name '*.py'")
 - Check Python version: execute_bash(command=".venv/bin/python --version")
 - Install packages: execute_bash(command=".venv/bin/pip install package_name")
+- Install packages with extras: execute_bash(command=".venv/bin/pip install 'httpx[socks]'")
 - Run Python code: execute_bash(command=".venv/bin/python -c \"print('Hello')\"")
 - Run Python scripts: execute_bash(command=".venv/bin/python script.py")
+
+INSTALLING MISSING PACKAGES:
+If you encounter ImportError or missing package errors, install the required packages:
+
+1. Basic package installation:
+   execute_bash(command=".venv/bin/pip install package_name")
+
+2. Install package with extras (for optional dependencies):
+   execute_bash(command=".venv/bin/pip install 'httpx[socks]'")
+   execute_bash(command=".venv/bin/pip install 'requests[security]'")
+
+3. Install multiple packages:
+   execute_bash(command=".venv/bin/pip install package1 package2 package3")
+
+4. Install from requirements file:
+   execute_bash(command=".venv/bin/pip install -r requirements.txt")
+
+5. Common examples:
+   - Missing socksio: execute_bash(command=".venv/bin/pip install 'httpx[socks]'")
+   - Missing requests: execute_bash(command=".venv/bin/pip install requests")
+   - Missing pandas: execute_bash(command=".venv/bin/pip install pandas")
+
+IMPORTANT: Always install missing packages when you see ImportError or "package is not installed" errors.
+The sandbox has network access for package installation via pip.
 
 Examples:
 Use execute_bash like this:
@@ -74,11 +99,35 @@ execute_bash(command="find . -name '*.py' -type f")
 # Check if a file exists
 execute_bash(command="test -f script.py && echo 'exists' || echo 'not found'")
 
+# Install a missing package (when you see ImportError)
+execute_bash(command=".venv/bin/pip install 'httpx[socks]'")
+
 # Run Python code inline
 execute_bash(command=".venv/bin/python -c \"print('Hello, World!')\"")
 
 # Run a Python script
 execute_bash(command=".venv/bin/python script.py")
+
+CREATING DYNAMIC TOOLS:
+You can create new tools on the fly by saving Python scripts to the `vmcp_tools/` directory. These tools are automatically discovered and made available via the SDK.
+
+1. Create a Python script in `vmcp_tools/`:
+   - Must have a `main()` function with type hints for arguments
+   - Must have a docstring describing what the tool does
+   - Example:
+     execute_bash(command="mkdir -p vmcp_tools")
+     execute_bash(command="cat > vmcp_tools/my_tool.py << 'EOF'
+     def main(name: str, count: int = 1):
+         \"\"\"Greet a person multiple times.\"\"\"
+         return f'Hello {name}! ' * count
+     EOF")
+
+2. Verify the tool is available:
+   - Run `vmcp_sdk.list_tools()` to see the new tool (it will appear as `sandbox_tool_my_tool`)
+   - Or use CLI: `vmcp-sdk list-tools`
+
+3. Use the tool:
+   - Call it like any other SDK tool: `vmcp_sdk.sandbox_tool_my_tool(name="World", count=3)`
 
 WORKFLOW PATTERNS:
 
@@ -162,7 +211,19 @@ The vMCP is automatically detected from .vmcp-config.json in the sandbox directo
    vmcp-sdk list-tools
    ```
 
-2. List prompts in the current vMCP:
+2. REFRESHING TOOL LIST:
+   Whenever you create a new dynamic tool, you MUST run `vmcp-sdk list-tools` to refresh the tool registry.
+   This ensures the new tool is immediately available for use.
+
+   ```bash
+   # Create tool
+   # ... (tool creation code) ...
+   
+   # Refresh tool list (CRITICAL STEP)
+   vmcp-sdk list-tools
+   ```
+
+3. List prompts in the current vMCP:
    ```bash
    vmcp-sdk list-prompts
    ```
@@ -401,29 +462,37 @@ TROUBLESHOOTING
 
 If you encounter issues:
 
-1. SDK/CLI not found:
+1. Missing packages / ImportError:
+   - If you see "package is not installed" or ImportError, install the missing package
+   - Example: execute_bash(command=".venv/bin/pip install 'httpx[socks]'")
+   - Example: execute_bash(command=".venv/bin/pip install requests")
+   - Always check error messages for the exact package name needed
+   - Common packages: httpx[socks], requests, pandas, numpy, etc.
+
+2. SDK/CLI not found:
    - The SDK and CLI are pre-installed in the sandbox virtual environment
    - If issues persist, check that you're using the sandbox's Python interpreter
    - Verify `vmcp-sdk` command is available in the sandbox PATH
 
-2. vMCP not found:
+3. vMCP not found:
    - Ensure you're in a sandbox directory with .vmcp-config.json
    - Verify the sandbox is properly configured with a vmcp_id
    - The vMCP is automatically detected - no need to specify it manually
 
-3. Tool not accessible:
+4. Tool not accessible:
    - Use CLI to see exact names: `vmcp-sdk list-tools`
    - Check tool name normalization (camelCase → snake_case)
    - List tools programmatically: `vmcp_sdk.list_tools()` to see exact names
    - Access tools directly on vmcp_sdk: `vmcp_sdk.tool_name()` or `getattr(vmcp_sdk, "tool_name")`
 
-4. Tool execution errors:
+5. Tool execution errors:
    - Test via CLI first: `vmcp-sdk call-tool --tool <name> --payload '{...}'`
    - Check tool parameters match the schema
    - Verify required parameters are provided
    - Check result.get("isError") for error details
+   - If error mentions missing package, install it first
 
-5. CLI vs SDK confusion:
+6. CLI vs SDK confusion:
    - Remember: CLI for exploration, SDK for scripts
    - If you need quick info → use CLI
    - If you need automation → use SDK
@@ -483,8 +552,33 @@ Common operations:
 - Find files: execute_bash(command="find . -name '*.py'")
 - Check Python version: execute_bash(command=".venv/bin/python --version")
 - Install packages: execute_bash(command=".venv/bin/pip install package_name")
+- Install packages with extras: execute_bash(command=".venv/bin/pip install 'httpx[socks]'")
 - Run Python code: execute_bash(command=".venv/bin/python -c \"print('Hello')\"")
 - Run Python scripts: execute_bash(command=".venv/bin/python script.py")
+
+INSTALLING MISSING PACKAGES:
+If you encounter ImportError or missing package errors, install the required packages:
+
+1. Basic package installation:
+   execute_bash(command=".venv/bin/pip install package_name")
+
+2. Install package with extras (for optional dependencies):
+   execute_bash(command=".venv/bin/pip install 'httpx[socks]'")
+   execute_bash(command=".venv/bin/pip install 'requests[security]'")
+
+3. Install multiple packages:
+   execute_bash(command=".venv/bin/pip install package1 package2 package3")
+
+4. Install from requirements file:
+   execute_bash(command=".venv/bin/pip install -r requirements.txt")
+
+5. Common examples:
+   - Missing socksio: execute_bash(command=".venv/bin/pip install 'httpx[socks]'")
+   - Missing requests: execute_bash(command=".venv/bin/pip install requests")
+   - Missing pandas: execute_bash(command=".venv/bin/pip install pandas")
+
+IMPORTANT: Always install missing packages when you see ImportError or "package is not installed" errors.
+The sandbox has network access for package installation via pip.
 
 Examples:
 Use execute_bash like this:
@@ -500,11 +594,35 @@ execute_bash(command="find . -name '*.py' -type f")
 # Check if a file exists
 execute_bash(command="test -f script.py && echo 'exists' || echo 'not found'")
 
+# Install a missing package (when you see ImportError)
+execute_bash(command=".venv/bin/pip install 'httpx[socks]'")
+
 # Run Python code inline
 execute_bash(command=".venv/bin/python -c \"print('Hello, World!')\"")
 
 # Run a Python script
 execute_bash(command=".venv/bin/python script.py")
+
+CREATING DYNAMIC TOOLS:
+You can create new tools on the fly by saving Python scripts to the `vmcp_tools/` directory. These tools are automatically discovered and made available via the SDK.
+
+1. Create a Python script in `vmcp_tools/`:
+   - Must have a `main()` function with type hints for arguments
+   - Must have a docstring describing what the tool does
+   - Example:
+     execute_bash(command="mkdir -p vmcp_tools")
+     execute_bash(command="cat > vmcp_tools/my_tool.py << 'EOF'
+     def main(name: str, count: int = 1):
+         \"\"\"Greet a person multiple times.\"\"\"
+         return f'Hello {name}! ' * count
+     EOF")
+
+2. Verify the tool is available:
+   - Run `vmcp_sdk.list_tools()` to see the new tool (it will appear as `sandbox_tool_my_tool`)
+   - Or use CLI: `vmcp-sdk list-tools`
+
+3. Use the tool:
+   - Call it like any other SDK tool: `vmcp_sdk.sandbox_tool_my_tool(name="World", count=3)`
 
 WORKFLOW PATTERNS:
 
@@ -729,24 +847,32 @@ TROUBLESHOOTING
 
 If you encounter issues:
 
-1. SDK not found:
+1. Missing packages / ImportError:
+   - If you see "package is not installed" or ImportError, install the missing package
+   - Example: execute_bash(command=".venv/bin/pip install 'httpx[socks]'")
+   - Example: execute_bash(command=".venv/bin/pip install requests")
+   - Always check error messages for the exact package name needed
+   - Common packages: httpx[socks], requests, pandas, numpy, etc.
+
+2. SDK not found:
    - The SDK is pre-installed in the sandbox virtual environment
    - If issues persist, check that you're using the sandbox's Python interpreter
 
-2. vMCP not found:
+3. vMCP not found:
    - Ensure you're in a sandbox directory with .vmcp-config.json
    - Verify the sandbox is properly configured with a vmcp_id
    - The vMCP is automatically detected - no need to specify it manually
 
-3. Tool not accessible:
+4. Tool not accessible:
    - Check tool name normalization (camelCase → snake_case)
    - List tools programmatically: `vmcp_sdk.list_tools()` to see exact names
    - Access tools directly on vmcp_sdk: `vmcp_sdk.tool_name()` or `getattr(vmcp_sdk, "tool_name")`
 
-4. Tool execution errors:
+5. Tool execution errors:
    - Check tool parameters match the schema
    - Verify required parameters are provided
    - Check result.get("isError") for error details
+   - If error mentions missing package, install it first
 
 ================================================================================
 
@@ -913,11 +1039,11 @@ Use execute_bash to run Python scripts for SDK automation:
                 sandbox_path = cwd
             else:
                 return None
-        
+
         config_path = sandbox_path / ".vmcp-config.json"
         if not config_path.exists():
             return None
-        
+
         try:
             with open(config_path, 'r') as f:
                 config_data = json.load(f)
@@ -925,6 +1051,79 @@ Use execute_bash to run Python scripts for SDK automation:
         except (json.JSONDecodeError, KeyError, IOError) as e:
             logger.warning(f"Error reading sandbox config: {e}")
             return None
+    
+    # Default packages to install in all sandboxes
+    DEFAULT_SANDBOX_PACKAGES = [
+        # HTTP/Network
+        "httpx[socks]",      # For SOCKS proxy support in MCP clients
+        "requests",          # Common HTTP library
+        "aiohttp",           # Async HTTP client/server
+
+        # Data Processing
+        "pandas",            # Data manipulation and analysis
+        "numpy",             # Numerical computing
+
+        # Web Scraping & Parsing
+        "beautifulsoup4",    # HTML/XML parsing
+        "lxml",              # Fast XML/HTML parser
+
+        # Data Formats
+        "pyyaml",            # YAML parsing
+        "python-dotenv",     # Environment variable management
+
+        # Utilities
+        "pydantic",          # Data validation using Python type annotations
+        "jinja2",            # Templating engine
+        "markdown",          # Markdown processing
+        "pillow",            # Image processing
+        "openpyxl",          # Excel file reading/writing
+    ]
+
+    def _install_default_packages(self, venv_python: Path, uv_cmd: Optional[str] = None) -> bool:
+        """
+        Install default packages in the sandbox virtual environment.
+        
+        Args:
+            venv_python: Path to the Python executable in the venv
+            uv_cmd: Optional uv command path
+            
+        Returns:
+            True if successful, False otherwise
+        """
+        try:
+            if not self.DEFAULT_SANDBOX_PACKAGES:
+                return True
+            
+            logger.info(f"Installing default packages: {', '.join(self.DEFAULT_SANDBOX_PACKAGES)}")
+            
+            if uv_cmd:
+                result = subprocess.run(
+                    [uv_cmd, "pip", "install"] + self.DEFAULT_SANDBOX_PACKAGES + ["--python", str(venv_python)],
+                    capture_output=True,
+                    text=True,
+                    timeout=300
+                )
+            else:
+                result = subprocess.run(
+                    [str(venv_python), "-m", "pip", "install"] + self.DEFAULT_SANDBOX_PACKAGES,
+                    capture_output=True,
+                    text=True,
+                    timeout=300
+                )
+            
+            if result.returncode != 0:
+                logger.error(f"Failed to install default packages: {result.stderr}")
+                return False
+            
+            logger.info("Installed default packages")
+            return True
+            
+        except subprocess.TimeoutExpired:
+            logger.error("Timeout installing default packages")
+            return False
+        except Exception as e:
+            logger.error(f"Error installing default packages: {e}", exc_info=True)
+            return False
     
     def create_sandbox(self, vmcp_id: str) -> bool:
         """
@@ -1032,6 +1231,10 @@ Use execute_bash to run Python scripts for SDK automation:
                 return False
             
             logger.info("Installed vmcp package")
+            
+            # Install default packages
+            if not self._install_default_packages(venv_python, uv_cmd):
+                logger.warning("Failed to install default packages, but continuing...")
             
             # Create sandbox config file with vmcp_id
             self._create_sandbox_config(sandbox_path, vmcp_id)
@@ -1147,6 +1350,10 @@ Use execute_bash to run Python scripts for SDK automation:
             
             logger.info("Installed vmcp package")
             
+            # Install default packages
+            if not self._install_default_packages(venv_python, uv_cmd):
+                logger.warning("Failed to install default packages, but continuing...")
+            
             # Create sandbox config file with vmcp_id if it doesn't exist
             if vmcp_id is None:
                 # Extract vmcp_id from sandbox_path (it's the directory name)
@@ -1176,13 +1383,59 @@ Use execute_bash to run Python scripts for SDK automation:
         """
         try:
             sandbox_path = self.get_sandbox_path(vmcp_id)
-            if sandbox_path.exists():
-                shutil.rmtree(sandbox_path)
-                logger.info(f"Deleted sandbox directory: {sandbox_path}")
-                return True
-            else:
+            if not sandbox_path.exists():
                 logger.info(f"Sandbox directory does not exist: {sandbox_path}")
                 return True  # Consider it successful if it doesn't exist
+            
+            logger.info(f"Deleting sandbox directory: {sandbox_path}")
+            
+            # Use shutil.rmtree with error handling for locked files
+            # On Windows, files might be locked, so we use onerror handler
+            def handle_remove_readonly(func, path, exc):
+                """
+                Handle permission errors when deleting files.
+                On Windows, files might be read-only.
+                """
+                import stat
+                if func in (os.unlink, os.remove) and os.path.exists(path):
+                    # Change file permissions to allow deletion
+                    os.chmod(path, stat.S_IWRITE)
+                    func(path)
+                elif func == os.rmdir:
+                    # Try to remove directory again
+                    try:
+                        os.rmdir(path)
+                    except OSError:
+                        pass
+            
+            # Delete the directory tree
+            shutil.rmtree(sandbox_path, onerror=handle_remove_readonly)
+            
+            # Verify deletion
+            if sandbox_path.exists():
+                logger.warning(f"Sandbox directory still exists after deletion attempt: {sandbox_path}")
+                # Try one more time with force
+                try:
+                    import stat
+                    # Make all files writable
+                    for root, dirs, files in os.walk(sandbox_path):
+                        for d in dirs:
+                            os.chmod(os.path.join(root, d), stat.S_IWRITE | stat.S_IREAD | stat.S_IEXEC)
+                        for f in files:
+                            os.chmod(os.path.join(root, f), stat.S_IWRITE | stat.S_IREAD)
+                    shutil.rmtree(sandbox_path, onerror=handle_remove_readonly)
+                except Exception as e2:
+                    logger.error(f"Failed to force delete sandbox directory: {e2}")
+                    return False
+            
+            # Final verification
+            if sandbox_path.exists():
+                logger.error(f"Failed to delete sandbox directory: {sandbox_path} still exists")
+                return False
+            
+            logger.info(f"Successfully deleted sandbox directory: {sandbox_path}")
+            return True
+            
         except Exception as e:
             logger.error(f"Error deleting sandbox for {vmcp_id}: {e}", exc_info=True)
             return False
@@ -1569,7 +1822,7 @@ def main(command: str, timeout: int = 30):
         
         # Select prompt based on progressive discovery setting
         if progressive_discovery_enabled:
-            prompt = self.SETUP_PROMPT_PROGRESSIVE_DISCOVERY
+            prompt = self.SETUP_PROMPT_SDK_ONLY #to self.SETUP_PROMPT_PROGRESSIVE_DISCOVERY
         else:
             prompt = self.SETUP_PROMPT_SDK_ONLY
         

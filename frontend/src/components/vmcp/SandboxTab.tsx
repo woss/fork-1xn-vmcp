@@ -3,13 +3,16 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
+import { Button } from '@/components/ui/button';
 import { VMCPConfig, FileNode } from '@/types/vmcp';
 import { apiClient } from '@/api/client';
 import { useToast } from '@/hooks/use-toast';
+import { ConfirmationDialog } from '@/components/ui/confirmation-dialog';
 import FileTree from './FileTree';
 import CodeEditor from './CodeEditor';
 import EmptySandboxState from './EmptySandboxState';
 import { getFileIcon } from '@/utils/fileIcons';
+import { Trash2 } from 'lucide-react';
 
 interface SandboxTabProps {
   vmcpConfig: VMCPConfig;
@@ -33,6 +36,8 @@ export default function SandboxTab({ vmcpConfig, vmcpId, isRemoteVMCP = false, o
   const [loadingFiles, setLoadingFiles] = useState(false);
   const [loadingFileContent, setLoadingFileContent] = useState(false);
   const [cursorPosition, setCursorPosition] = useState({ line: 1, column: 1 });
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const { success: showSuccess, error: showError } = useToast();
 
   // Load files
@@ -380,6 +385,44 @@ export default function SandboxTab({ vmcpConfig, vmcpId, isRemoteVMCP = false, o
     setCursorPosition({ line, column });
   }, []);
 
+  // Handle delete sandbox
+  const handleDeleteSandbox = async () => {
+    try {
+      setDeleting(true);
+      const accessToken = localStorage.getItem('access_token') || (import.meta.env.VITE_VMCP_OSS_BUILD === 'true' ? 'local-token' : undefined);
+      const result = await apiClient.deleteSandbox(vmcpId, accessToken);
+
+      if (result.success) {
+        // Update state to reflect sandbox deletion
+        setSandboxEnabled(false);
+        if (onSandboxStatusChange) {
+          onSandboxStatusChange(false);
+        }
+        setFolderExists(false);
+        setFiles([]);
+        setSelectedFile(null);
+        setFileContent('');
+        setShowDeleteDialog(false);
+        showSuccess('Sandbox deleted successfully');
+        // Reload status to ensure everything is in sync with backend
+        // This will verify the folder is actually deleted and update UI accordingly
+        try {
+          await loadSandboxStatus();
+        } catch (error) {
+          // If status load fails, that's okay - we've already updated local state
+          console.warn('Failed to reload sandbox status after deletion:', error);
+        }
+      } else {
+        showError(result.error || 'Failed to delete sandbox');
+      }
+    } catch (error) {
+      console.error('Error deleting sandbox:', error);
+      showError('Failed to delete sandbox');
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-full min-h-[400px]">
@@ -424,11 +467,25 @@ export default function SandboxTab({ vmcpConfig, vmcpId, isRemoteVMCP = false, o
               {sandboxEnabled ? 'Disable Sandbox' : 'Enable Sandbox'}
             </Label>
           </div>
-          {isRemoteVMCP && (
-            <p className="text-xs text-muted-foreground">
-              Sandbox cannot be disabled for remote vMCPs
-            </p>
-          )}
+          <div className="flex items-center gap-3">
+            {isRemoteVMCP && (
+              <p className="text-xs text-muted-foreground">
+                Sandbox cannot be disabled for remote vMCPs
+              </p>
+            )}
+            {folderExists && !isRemoteVMCP && (
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={() => setShowDeleteDialog(true)}
+                disabled={deleting || enabling}
+                className="gap-2"
+              >
+                <Trash2 className="h-4 w-4" />
+                Delete Sandbox
+              </Button>
+            )}
+          </div>
         </div>
 
         {/* Progressive Discovery Toggle */}
@@ -481,6 +538,19 @@ export default function SandboxTab({ vmcpConfig, vmcpId, isRemoteVMCP = false, o
           <span>Ln {cursorPosition.line}, Col {cursorPosition.column}</span>
         </div>
       </div>
+
+      {/* Delete Confirmation Dialog */}
+      <ConfirmationDialog
+        isOpen={showDeleteDialog}
+        onClose={() => setShowDeleteDialog(false)}
+        onConfirm={handleDeleteSandbox}
+        title="Delete Sandbox"
+        description="This will permanently delete the sandbox directory and all its contents. This action cannot be undone. The sandbox will be disabled after deletion."
+        confirmText="Delete"
+        cancelText="Cancel"
+        variant="destructive"
+        isLoading={deleting}
+      />
     </div>
   );
 }

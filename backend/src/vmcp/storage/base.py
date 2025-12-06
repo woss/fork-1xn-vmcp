@@ -14,6 +14,7 @@ from typing import Any, Dict, List, Optional
 from urllib.parse import unquote
 
 from sqlalchemy.orm import Session
+from sqlalchemy.exc import OperationalError
 
 from vmcp.storage.database import SessionLocal
 from vmcp.storage.models import (
@@ -1148,6 +1149,12 @@ class StorageBase:
             return True
 
         except Exception as e:
+            # Handle read-only database error gracefully (common in sandboxed environments)
+            if isinstance(e, OperationalError) and "readonly database" in str(e):
+                logger.warning(f"Skipping stats save (read-only database): {operation_type}:{operation_name}")
+                session.rollback()
+                return False
+                
             logger.error(f"Error saving vMCP stats: {e}")
             session.rollback()
             return False
