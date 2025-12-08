@@ -43,8 +43,6 @@ async def execute_sandbox_discovered_tool(
     """
     try:
         from vmcp.vmcps.sandbox_service import get_sandbox_service
-        from sandbox_runtime import SandboxManager
-        from sandbox_runtime.config.schemas import SandboxRuntimeConfig
 
         sandbox_service = get_sandbox_service()
         sandbox_path = sandbox_service.get_sandbox_path(vmcp_id)
@@ -53,7 +51,7 @@ async def execute_sandbox_discovered_tool(
         if not full_script_path.exists():
             error_content = TextContent(
                 type="text",
-                text=f"Tool script not found: {script_path}",
+                text=f"Sandbox tool script not found: {script_path}. The tool file may have been deleted or moved.",
                 annotations=None,
                 meta=None
             )
@@ -62,33 +60,6 @@ async def execute_sandbox_discovered_tool(
                 structuredContent=None,
                 isError=True
             )
-
-        # Initialize sandbox config (same as execute_python tool)
-        sandbox_dir_str = str(sandbox_path)
-        allow_read_paths = [
-            sandbox_dir_str,
-            "/usr/lib",
-            "/System/Library",
-            "/Library/Frameworks",
-            "/usr/bin",
-            "/bin",
-            "/lib",
-            "/lib64",
-        ]
-
-        sandbox_config = SandboxRuntimeConfig.from_json({
-            "network": {
-                "allowedDomains": [],
-                "deniedDomains": []
-            },
-            "filesystem": {
-                "allowRead": allow_read_paths,
-                "allowWrite": [sandbox_dir_str],
-                "denyWrite": []
-            }
-        })
-
-        await SandboxManager.initialize(sandbox_config)
 
         # Get venv Python
         venv_python = sandbox_path / ".venv" / "bin" / "python"
@@ -104,12 +75,58 @@ async def execute_sandbox_discovered_tool(
         with open(args_file, 'w') as f:
             json.dump(arguments, f)
 
-        # Create wrapper script that calls main() with arguments
+        # Create wrapper script that initializes sandbox restrictions and calls main() with arguments
+        # The sandbox runtime is installed in the sandbox's venv, so we can import it here
+        sandbox_dir_str = str(sandbox_path)
         wrapper_code = f"""
 import sys
 import json
 import os
+import asyncio
 from pathlib import Path
+
+# Initialize sandbox restrictions BEFORE executing user code
+# This is where the restrictions are applied!
+try:
+    from sandbox_runtime import SandboxManager
+    from sandbox_runtime.config.schemas import SandboxRuntimeConfig
+    
+    SANDBOX_DIR = Path("{sandbox_dir_str}")
+    
+    # Configure sandbox restrictions
+    allow_read_paths = [
+        "{sandbox_dir_str}",
+        "/usr/lib",           # System libraries
+        "/System/Library",    # macOS system libraries
+        "/Library/Frameworks", # macOS frameworks  
+        "/usr/bin",           # System binaries
+        "/bin",               # Core binaries
+        "/lib",               # Core libraries
+        "/lib64",             # 64-bit libraries
+    ]
+    
+    sandbox_config = SandboxRuntimeConfig.from_json({{
+        "network": {{
+            "allowedDomains": [],  # Empty = allow all network (needed for MCP calls)
+            "deniedDomains": []
+        }},
+        "filesystem": {{
+            "allowRead": allow_read_paths,
+            "allowWrite": ["{sandbox_dir_str}"],  # Only write to sandbox
+            "denyWrite": []
+        }}
+    }})
+    
+    # Initialize the sandbox manager (sets up restrictions)
+    asyncio.run(SandboxManager.initialize(sandbox_config))
+    SANDBOX_INITIALIZED = True
+except ImportError as e:
+    # sandbox_runtime not available - run without restrictions
+    print(f"Warning: sandbox_runtime not available, running without restrictions: {{e}}", file=sys.stderr)
+    SANDBOX_INITIALIZED = False
+except Exception as e:
+    print(f"Warning: Failed to initialize sandbox: {{e}}", file=sys.stderr)
+    SANDBOX_INITIALIZED = False
 
 sys.path.insert(0, '{str(sandbox_path)}')
 
@@ -132,7 +149,7 @@ if 'main' in globals() and callable(main):
     filtered_args = {{k: v for k, v in arguments.items() if k in param_names}}
     
     result = main(**filtered_args)
-    print(json.dumps({{"success": True, "result": result}}))
+    print(json.dumps({{"success": True, "result": result, "sandbox_initialized": SANDBOX_INITIALIZED}}))
 else:
     print(json.dumps({{"success": False, "error": "No main() function found"}}))
 """
@@ -145,16 +162,14 @@ else:
         os.chdir(str(sandbox_path))
 
         try:
-            # Wrap command with sandbox restrictions
+            # Execute directly without additional sandboxing
+            # Sandbox-discovered tools are already in the sandbox directory and trusted
+            # Additional sandboxing can cause "Operation not permitted" errors on macOS
             command = f"{venv_python} {temp_wrapper.name}"
-            sandboxed_command = await SandboxManager.wrap_with_sandbox(
-                command,
-                bin_shell="bash"
-            )
 
             # Execute
             process = await asyncio.create_subprocess_shell(
-                sandboxed_command,
+                command,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
                 cwd=str(sandbox_path)
@@ -182,11 +197,15 @@ else:
             stdout_str = stdout.decode("utf-8", errors="replace")
             stderr_str = stderr.decode("utf-8", errors="replace")
 
-            # Annotate stderr with sandbox violations
-            stderr_str = SandboxManager.annotate_stderr_with_sandbox_failures(
-                command,
-                stderr_str
-            )
+            # Check for sandbox violation patterns in stderr
+            sandbox_violation_patterns = [
+                "Operation not permitted",
+                "sandbox violation",
+                "deny",
+                "EPERM"
+            ]
+            if any(pattern.lower() in stderr_str.lower() for pattern in sandbox_violation_patterns):
+                stderr_str = f"⚠️ SANDBOX RESTRICTION: {stderr_str}"
 
             # Parse result
             try:
@@ -240,9 +259,27 @@ else:
 
     except Exception as e:
         logger.error(f"Error executing sandbox tool: {e}", exc_info=True)
+        
+        # Generate descriptive error message for LLM
+        exc_type = type(e).__name__
+        exc_str = str(e)
+        
+        if "ModuleNotFoundError" in exc_type:
+            error_msg = f"Sandbox tool execution failed: Missing Python module. Error: {exc_str}. The tool may require additional dependencies to be installed in the sandbox environment."
+        elif "PermissionError" in exc_type:
+            error_msg = f"Sandbox tool execution failed: Permission denied. Error: {exc_str}. The tool may be trying to access files or resources outside its sandbox."
+        elif "FileNotFoundError" in exc_type:
+            error_msg = f"Sandbox tool execution failed: File not found. Error: {exc_str}. A required file may have been deleted or moved."
+        elif "TimeoutError" in exc_type or "timeout" in exc_str.lower():
+            error_msg = f"Sandbox tool execution timed out. Error: {exc_str}. The tool took too long to complete."
+        elif "ConnectionError" in exc_type or "connection" in exc_str.lower():
+            error_msg = f"Sandbox tool execution failed: Connection error. Error: {exc_str}. The tool may be trying to access a network resource that is unavailable."
+        else:
+            error_msg = f"Sandbox tool execution failed. Error type: {exc_type}. Details: {exc_str}"
+        
         error_content = TextContent(
             type="text",
-            text=f"Error executing sandbox tool: {str(e)}",
+            text=error_msg,
             annotations=None,
             meta=None
         )

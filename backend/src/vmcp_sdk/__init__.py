@@ -97,6 +97,7 @@ def _module_getattr(name: str) -> Any:
         return getattr(_module, name)
 
     # Otherwise, treat as tool function - delegate to client
+    # This will handle both tools in the list and MCP server tools (even when progressive discovery is enabled)
     client = _get_client()
     asyncio.run(client._load_tools())
     return getattr(client, name)

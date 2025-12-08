@@ -274,16 +274,30 @@ async def tools_list(
 
         title = custom_tool.get('name')
 
+        # Preserve original meta fields (especially 'source' for sandbox_discovered tools)
+        original_meta = custom_tool.get('meta', {})
+        tool_meta = {
+            "type": "custom",
+            "tool_type": tool_type,
+            "vmcp_id": vmcp_id
+        }
+        # Preserve source and other meta fields from original tool
+        if isinstance(original_meta, dict):
+            if 'source' in original_meta:
+                tool_meta['source'] = original_meta['source']
+            if 'script_path' in original_meta:
+                tool_meta['script_path'] = original_meta['script_path']
+            # Preserve any other meta fields
+            for key in ['source', 'script_path', 'vmcp_id']:
+                if key in original_meta and key not in tool_meta:
+                    tool_meta[key] = original_meta[key]
+
         custom_tool_obj = Tool(
             name=custom_tool.get("name"),
             description=description,
             inputSchema=tool_input_schema,
             title=title,
-            meta={
-                "type": "custom",
-                "tool_type": tool_type,
-                "vmcp_id": vmcp_id
-            }
+            meta=tool_meta
         )
         all_tools.append(custom_tool_obj)
 

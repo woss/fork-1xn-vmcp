@@ -123,11 +123,12 @@ You can create new tools on the fly by saving Python scripts to the `vmcp_tools/
      EOF")
 
 2. Verify the tool is available:
-   - Run `vmcp_sdk.list_tools()` to see the new tool (it will appear as `sandbox_tool_my_tool`)
-   - Or use CLI: `vmcp-sdk list-tools`
+   - Run `vmcp_sdk.list_tools()` to see the new tool (it will appear as `my_tool`)
+   - Or use the preloaded script: `execute_bash(command=".venv/bin/python list_tools.py")`
+   - The list_tools.py script will show the new tool in the "🏖️  SANDBOX TOOLS" section with detailed information
 
 3. Use the tool:
-   - Call it like any other SDK tool: `vmcp_sdk.sandbox_tool_my_tool(name="World", count=3)`
+   - Call it like any other SDK tool: `vmcp_sdk.my_tool(name="World", count=3)`
 
 WORKFLOW PATTERNS:
 
@@ -212,9 +213,10 @@ The vMCP is automatically detected from .vmcp-config.json in the sandbox directo
    ```
 
 2. REFRESHING TOOL LIST:
-   Whenever you create a new dynamic tool, you MUST run `vmcp-sdk list-tools` to refresh the tool registry.
-   This ensures the new tool is immediately available for use.
+   Whenever you create a new dynamic tool, you MUST refresh the tool registry to see the new tool.
+   You can use either the CLI or the preloaded list_tools.py script:
 
+   Option A - Using CLI:
    ```bash
    # Create tool
    # ... (tool creation code) ...
@@ -222,6 +224,45 @@ The vMCP is automatically detected from .vmcp-config.json in the sandbox directo
    # Refresh tool list (CRITICAL STEP)
    vmcp-sdk list-tools
    ```
+
+   Option B - Using list_tools.py script (RECOMMENDED for detailed info):
+   ```bash
+   # Create tool
+   # ... (tool creation code) ...
+   
+   # Run list_tools.py to see all tools with detailed information
+   execute_bash(command=".venv/bin/python list_tools.py")
+   ```
+
+   The list_tools.py script provides:
+   - Complete list of all MCP servers and their tools
+   - Authorization status and links for servers requiring auth
+   - Custom tools with their schemas
+   - Sandbox tools (dynamically discovered)
+   - Detailed tool schemas and parameter information
+   - Summary statistics
+
+3. DISCOVERING ALL TOOLS - Using list_tools.py:
+   The sandbox comes preloaded with a `list_tools.py` script that provides comprehensive tool discovery.
+   This script shows all available tools organized by category:
+
+   ```bash
+   # Run the preloaded list_tools.py script
+   execute_bash(command=".venv/bin/python list_tools.py")
+   ```
+
+   This will display:
+   - 📡 MCP Servers: All connected MCP servers with their tools, status, and authorization links
+   - 🛠️  Custom Tools: All custom tools configured in the vMCP
+   - 🏖️  Sandbox Tools: Dynamically discovered tools from vmcp_tools/ directory
+   - 📊 Summary: Total counts of each tool type
+
+   Use this script when you need:
+   - Complete overview of all available tools
+   - Information about MCP server connection status
+   - Authorization links for servers requiring authentication
+   - Detailed tool schemas and parameters
+   - Verification after creating new dynamic tools
 
 3. List prompts in the current vMCP:
    ```bash
@@ -383,7 +424,7 @@ BEST PRACTICES FOR WORKFLOWS:
 EXPLORING TOOLS - CLI vs SDK
 ================================================================================
 
-OPTION 1: Use CLI for quick exploration (RECOMMENDED for discovery):
+OPTION 1: Use CLI for quick exploration:
 ```bash
 # Quick overview of all tools
 vmcp-sdk list-tools
@@ -392,7 +433,26 @@ vmcp-sdk list-tools
 # This is faster and more readable for initial exploration
 ```
 
-OPTION 2: Use SDK for programmatic exploration (for scripts):
+OPTION 2: Use list_tools.py script for comprehensive discovery (RECOMMENDED for detailed info):
+```bash
+# Run the preloaded list_tools.py script
+execute_bash(command=".venv/bin/python list_tools.py")
+```
+
+This provides:
+- Complete list of all MCP servers with connection status and authorization links
+- All custom tools with detailed schemas
+- All sandbox tools (dynamically discovered)
+- Organized, formatted output with tool categories
+- Summary statistics
+
+Use this when you need:
+- Full overview of all available tools
+- MCP server status and authorization information
+- Detailed tool schemas and parameters
+- Verification after creating dynamic tools
+
+OPTION 3: Use SDK for programmatic exploration (for scripts):
 ```python
 import vmcp_sdk
 import inspect
@@ -413,9 +473,11 @@ for tool in tools:
 ```
 
 RECOMMENDED WORKFLOW:
-1. Use CLI first: `vmcp-sdk list-tools` to see all tools quickly
+1. Discover all tools: Run `execute_bash(command=".venv/bin/python list_tools.py")` for comprehensive overview
+   OR use CLI: `vmcp-sdk list-tools` for quick overview
 2. Test a tool via CLI: `vmcp-sdk call-tool --tool <name> --payload '{...}'`
 3. Once you understand the tools, create SDK scripts for automation
+4. After creating dynamic tools: Run `list_tools.py` again to verify the new tool appears
 
 ================================================================================
 WORKFLOW EXAMPLES
@@ -480,6 +542,7 @@ If you encounter issues:
    - The vMCP is automatically detected - no need to specify it manually
 
 4. Tool not accessible:
+   - Use list_tools.py for comprehensive overview: `execute_bash(command=".venv/bin/python list_tools.py")`
    - Use CLI to see exact names: `vmcp-sdk list-tools`
    - Check tool name normalization (camelCase → snake_case)
    - List tools programmatically: `vmcp_sdk.list_tools()` to see exact names
@@ -502,17 +565,22 @@ If you encounter issues:
 Remember: You are a coding agent. 
 
 WORKFLOW RECOMMENDATION:
-1. Use execute_bash to run CLI commands for EXPLORATION:
-   - `vmcp-sdk list-tools` - Explore tools in the current vMCP
+1. Use execute_bash to discover tools:
+   - `execute_bash(command=".venv/bin/python list_tools.py")` - Comprehensive tool discovery with MCP server info
+   - `vmcp-sdk list-tools` - Quick CLI overview
    - `vmcp-sdk call-tool --tool <name> --payload '{...}'` - Test tools
 
-2. Use execute_bash to run Python scripts for SDK automation:
+2. After creating dynamic tools:
+   - Run `execute_bash(command=".venv/bin/python list_tools.py")` to verify the new tool appears
+   - Check the "🏖️  SANDBOX TOOLS" section for your newly created tool
+
+3. Use execute_bash to run Python scripts for SDK automation:
    - Create Python scripts with vmcp_sdk imports
    - Run scripts with: execute_bash(command=".venv/bin/python script.py")
    - Combine multiple tools into reusable scripts
    - Save scripts in ~/.vmcp/{vmcp_id} for future use
 
-The CLI is your exploration tool, the SDK is your automation tool. Use both effectively!
+The list_tools.py script is your comprehensive discovery tool, the CLI is for quick checks, and the SDK is for automation. Use all three effectively!
 """
 
     # Setup prompt for SDK-only mode (without CLI)
@@ -618,11 +686,12 @@ You can create new tools on the fly by saving Python scripts to the `vmcp_tools/
      EOF")
 
 2. Verify the tool is available:
-   - Run `vmcp_sdk.list_tools()` to see the new tool (it will appear as `sandbox_tool_my_tool`)
-   - Or use CLI: `vmcp-sdk list-tools`
+   - Run `vmcp_sdk.list_tools()` to see the new tool (it will appear as `my_tool`)
+   - Or use the preloaded script: `execute_bash(command=".venv/bin/python list_tools.py")`
+   - The list_tools.py script will show the new tool in the "🏖️  SANDBOX TOOLS" section with detailed information
 
 3. Use the tool:
-   - Call it like any other SDK tool: `vmcp_sdk.sandbox_tool_my_tool(name="World", count=3)`
+   - Call it like any other SDK tool: `vmcp_sdk.my_tool(name="World", count=3)`
 
 WORKFLOW PATTERNS:
 
@@ -695,6 +764,20 @@ You do NOT need to specify the vMCP name or ID - it's handled automatically.
    ```
 
 2. Explore tools in the current vMCP:
+
+   Option A - Using the preloaded list_tools.py script (RECOMMENDED for comprehensive discovery):
+   ```bash
+   # Run the preloaded script for detailed tool information
+   execute_bash(command=".venv/bin/python list_tools.py")
+   ```
+   This provides:
+   - Complete list of all MCP servers with connection status and authorization links
+   - All custom tools with detailed schemas
+   - All sandbox tools (dynamically discovered)
+   - Organized, formatted output with tool categories
+   - Summary statistics
+
+   Option B - Using SDK programmatically:
    ```python
    # List all tools
    tools = vmcp_sdk.list_tools()
@@ -864,6 +947,7 @@ If you encounter issues:
    - The vMCP is automatically detected - no need to specify it manually
 
 4. Tool not accessible:
+   - Use list_tools.py for comprehensive overview: `execute_bash(command=".venv/bin/python list_tools.py")`
    - Check tool name normalization (camelCase → snake_case)
    - List tools programmatically: `vmcp_sdk.list_tools()` to see exact names
    - Access tools directly on vmcp_sdk: `vmcp_sdk.tool_name()` or `getattr(vmcp_sdk, "tool_name")`
@@ -878,11 +962,23 @@ If you encounter issues:
 
 Remember: You are a coding agent. 
 
-Use execute_bash to run Python scripts for SDK automation:
-- Create Python scripts with vmcp_sdk imports
-- Run scripts with: execute_bash(command=".venv/bin/python script.py")
-- Combine multiple tools into reusable scripts
-- Save scripts in ~/.vmcp/{vmcp_id} for future use
+WORKFLOW RECOMMENDATION:
+1. Discover all tools first:
+   - Run `execute_bash(command=".venv/bin/python list_tools.py")` for comprehensive tool discovery
+   - This shows all MCP servers, custom tools, and sandbox tools with detailed information
+   - Check MCP server status and authorization links if needed
+
+2. After creating dynamic tools:
+   - Run `execute_bash(command=".venv/bin/python list_tools.py")` to verify the new tool appears
+   - Check the "🏖️  SANDBOX TOOLS" section for your newly created tool
+
+3. Use execute_bash to run Python scripts for SDK automation:
+   - Create Python scripts with vmcp_sdk imports
+   - Run scripts with: execute_bash(command=".venv/bin/python script.py")
+   - Combine multiple tools into reusable scripts
+   - Save scripts in ~/.vmcp/{vmcp_id} for future use
+
+The list_tools.py script is your comprehensive discovery tool - use it to understand all available tools before building workflows!
 """
 
     
@@ -1018,6 +1114,35 @@ Use execute_bash to run Python scripts for SDK automation:
         with open(config_path, 'w') as f:
             json.dump(config_data, f, indent=2)
         logger.info(f"Created sandbox config file: {config_path}")
+    
+    def _preload_list_tools_script(self, sandbox_path: Path) -> None:
+        """
+        Preload list_tools.py script into the sandbox directory.
+        
+        Args:
+            sandbox_path: Path to sandbox directory
+        """
+        try:
+            # Get the path to list_tools.py in the source directory
+            current_file = Path(__file__).resolve()
+            source_script = current_file.parent / "list_tools.py"
+            
+            if not source_script.exists():
+                logger.warning(f"list_tools.py not found at {source_script}, skipping preload")
+                return
+            
+            # Copy to sandbox directory
+            target_script = sandbox_path / "list_tools.py"
+            if not target_script.exists():
+                import shutil
+                shutil.copy2(source_script, target_script)
+                # Make it executable
+                target_script.chmod(0o755)
+                logger.info(f"Preloaded list_tools.py to {target_script}")
+            else:
+                logger.debug(f"list_tools.py already exists in sandbox, skipping")
+        except Exception as e:
+            logger.warning(f"Failed to preload list_tools.py: {e}")
     
     def get_sandbox_vmcp_id(self, sandbox_path: Optional[Path] = None) -> Optional[str]:
         """
@@ -1289,6 +1414,9 @@ Use execute_bash to run Python scripts for SDK automation:
             # Create sandbox config file with vmcp_id
             self._create_sandbox_config(sandbox_path, vmcp_id)
             
+            # Preload list_tools.py script
+            self._preload_list_tools_script(sandbox_path)
+            
             logger.info(f"✅ Sandbox created successfully: {sandbox_path}")
             return True
             
@@ -1416,6 +1544,9 @@ Use execute_bash to run Python scripts for SDK automation:
             config_path = sandbox_path / ".vmcp-config.json"
             if not config_path.exists():
                 self._create_sandbox_config(sandbox_path, vmcp_id)
+            
+            # Preload list_tools.py script if it doesn't exist
+            self._preload_list_tools_script(sandbox_path)
             
             return True
             
@@ -1554,9 +1685,11 @@ async def execute_python(code: str, timeout: int = 30):
         "/lib64",             # 64-bit libraries (Linux)
     ]
     
+    # Empty allowedDomains = no network restrictions (allow all)
+    # This allows MCP server connections and other network access from sandbox
     sandbox_config = SandboxRuntimeConfig.from_json({{
         "network": {{
-            "allowedDomains": [],
+            "allowedDomains": [],  # Empty = allow all network access
             "deniedDomains": []
         }},
         "filesystem": {{
@@ -1739,9 +1872,11 @@ async def execute_bash(command: str, timeout: int = 30):
         "/lib64",             # 64-bit libraries (Linux)
     ]
     
+    # Empty allowedDomains = no network restrictions (allow all)
+    # This allows MCP server connections and other network access from sandbox
     sandbox_config = SandboxRuntimeConfig.from_json({{
         "network": {{
-            "allowedDomains": [],
+            "allowedDomains": [],  # Empty = allow all network access
             "deniedDomains": []
         }},
         "filesystem": {{
@@ -1769,11 +1904,23 @@ async def execute_bash(command: str, timeout: int = 30):
         
         # Execute the sandboxed command
         # Note: cwd is still SANDBOX_DIR, but inside the sandbox it appears as /root
+        # Pass environment variables explicitly, but filter out proxy vars when network restrictions aren't needed
+        # (proxy vars can cause httpx to fail with ProxyError when no proxy is actually available)
+        env = os.environ.copy()
+        # Since allowedDomains is empty (no network restrictions), remove proxy env vars that might interfere
+        proxy_vars_to_remove = [
+            'HTTP_PROXY', 'HTTPS_PROXY', 'http_proxy', 'https_proxy',
+            'ALL_PROXY', 'all_proxy', 'NO_PROXY', 'no_proxy',
+            'FTP_PROXY', 'ftp_proxy', 'SOCKS_PROXY', 'socks_proxy'
+        ]
+        for var in proxy_vars_to_remove:
+            env.pop(var, None)
         process = await asyncio.create_subprocess_shell(
             sandboxed_command,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
-            cwd=str(SANDBOX_DIR)
+            cwd=str(SANDBOX_DIR),
+            env=env
         )
         
         try:
@@ -2029,7 +2176,7 @@ class SandboxToolRegistry:
             # Create tool definition
             # Read full script content for code field
             tool_def = {
-                'name': f"sandbox_tool_{tool_name}",
+                'name': tool_name,  # Keep original tool name without prefix
                 'description': description,
                 'tool_type': 'python',
                 'code': script_content,  # Full script content

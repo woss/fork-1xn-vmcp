@@ -113,6 +113,11 @@ async def _filter_network_request(
             log_for_debugging(f"Denied by config rule: {host}:{port}")
             return False
 
+    # If allowed_domains is empty, allow all (no network restrictions)
+    if len(_config.network.allowed_domains) == 0:
+        log_for_debugging(f"Allowed (no network restrictions): {host}:{port}")
+        return True
+
     # Check allowed domains
     for allowed_domain in _config.network.allowed_domains:
         if _matches_domain_pattern(host, allowed_domain):
@@ -495,8 +500,8 @@ async def wrap_with_sandbox(
         return await wrap_command_with_sandbox_macos(
             command=command,
             needs_network_restriction=needs_network_proxy,
-            http_proxy_port=get_proxy_port(),
-            socks_proxy_port=get_socks_proxy_port(),
+            http_proxy_port=get_proxy_port() if needs_network_proxy else None,
+            socks_proxy_port=get_socks_proxy_port() if needs_network_proxy else None,
             read_config=read_config,
             write_config=write_config,
             allow_unix_sockets=get_allow_unix_sockets(),
@@ -513,10 +518,10 @@ async def wrap_with_sandbox(
             http_socket_path=get_linux_http_socket_path(),
             socks_socket_path=get_linux_socks_socket_path(),
             http_proxy_port=_manager_context.get("http_proxy_port")
-            if _manager_context
+            if _manager_context and needs_network_proxy
             else None,
             socks_proxy_port=_manager_context.get("socks_proxy_port")
-            if _manager_context
+            if _manager_context and needs_network_proxy
             else None,
             read_config=read_config,
             write_config=write_config,

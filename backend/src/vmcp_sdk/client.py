@@ -232,5 +232,41 @@ class VMCPClient:
         if name in ["list_tools", "list_prompts", "list_resources"]:
             return getattr(self, name)
         
+        # Check if it might be an MCP server tool (format: ServerName_tool_name)
+        # This allows calling MCP tools even when progressive discovery hides them from the tools list
+        if '_' in name:
+            # Try to create a dynamic function for MCP server tools
+            def make_mcp_tool_impl(tool_name: str):
+                """Create a tool implementation function for MCP server tools."""
+                async def async_impl(**kwargs):
+                    request = VMCPToolCallRequest(
+                        tool_name=tool_name,
+                        arguments=kwargs
+                    )
+                    result = await self.manager.call_tool(
+                        request,
+                        connect_if_needed=True,
+                        return_metadata=False
+                    )
+                    # Extract result data
+                    if isinstance(result, dict):
+                        return result
+                    elif hasattr(result, 'model_dump'):
+                        return result.model_dump()
+                    elif hasattr(result, 'dict'):
+                        return result.dict()
+                    else:
+                        return {"result": str(result)}
+                
+                # Wrap in sync function for compatibility
+                def sync_wrapper(**kwargs):
+                    return asyncio.run(async_impl(**kwargs))
+                
+                return sync_wrapper
+            
+            # Return a generic function that accepts any kwargs
+            # This allows calling MCP tools even without type information
+            return make_mcp_tool_impl(name)
+        
         raise AttributeError(f"'{self.__class__.__name__}' object has no attribute '{name}'")
 

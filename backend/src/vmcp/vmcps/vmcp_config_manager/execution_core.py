@@ -164,14 +164,17 @@ async def call_tool(
     logger.info(f"🔍 VMCP Config Manager: Server details: {[(s.get('name'), s.get('name', '').replace('_', '')) for s in vmcp_servers]}")
 
     # Find the matching server and execute tool call
+    # Use case-insensitive matching since SDK normalizes tool names to lowercase
+    tool_server_name_lower = tool_server_name.lower()
     for server in vmcp_servers:
         server_name = server.get('name')
         server_id = server.get('server_id')
         server_name_clean = server_name.replace('_', '')
+        server_name_clean_lower = server_name_clean.lower()
 
-        logger.info(f"🔍 VMCP Config Manager: Checking server '{server_name}' (clean: '{server_name_clean}') against '{tool_server_name}'")
+        logger.info(f"🔍 VMCP Config Manager: Checking server '{server_name}' (clean: '{server_name_clean}') against '{tool_server_name}' (case-insensitive)")
 
-        if server_name_clean == tool_server_name:
+        if server_name_clean_lower == tool_server_name_lower:
             logger.info(f"✅ VMCP Config Manager: Found matching server '{server_name}' for tool '{vmcp_tool_call_request.tool_name}'")
             logger.info(f"🔍 VMCP Config Manager: Calling tool '{tool_original_name}' on server '{server_name}'")
             logger.info(f"🔍 VMCP Config Manager: Tool overrides: {vmcp_selected_tool_overrides.get(server_id, {})}")

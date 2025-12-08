@@ -445,6 +445,16 @@ async def generate_sandbox_profile(
             profile.append('(allow network-bind (local ip "localhost:*"))')
             profile.append('(allow network-inbound (local ip "localhost:*"))')
             profile.append('(allow network-outbound (local ip "localhost:*"))')
+        
+        # Allow DNS resolution (critical for network operations)
+        profile.append("; DNS Resolution")
+        profile.append('(allow network-outbound (literal "/private/var/run/mDNSResponder"))')
+        profile.append('(allow network-outbound (remote ip "localhost:53"))')
+        profile.append('(allow network-outbound (remote ip "localhost:5353"))')
+        
+        # Allow system sockets for DNS/mDNS
+        profile.append("(allow system-socket)")
+        
         # Unix domain sockets for local IPC (SSH agent, Docker, etc.)
         if allow_all_unix_sockets:
             profile.append('(allow network* (subpath "/"))')
