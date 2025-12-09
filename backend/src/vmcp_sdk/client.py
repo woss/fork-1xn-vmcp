@@ -111,7 +111,8 @@ class VMCPClient:
                 async def async_impl(**kwargs):
                     request = VMCPToolCallRequest(
                         tool_name=original_name,
-                        arguments=kwargs
+                        arguments=kwargs,
+                        skip_sandbox=True  # SDK calls are always from within sandbox, skip nested sandboxing
                     )
                     result = await self.manager.call_tool(
                         request,
