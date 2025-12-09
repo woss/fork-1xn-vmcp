@@ -461,6 +461,7 @@ async def wrap_with_sandbox(
     command: str,
     bin_shell: Optional[str] = None,
     custom_config: Optional[dict] = None,
+    sandbox_dir: Optional[str] = None,
 ) -> str:
     """Wrap a command with sandbox restrictions."""
     # If no config, return command as-is
@@ -509,6 +510,7 @@ async def wrap_with_sandbox(
             allow_local_binding=get_allow_local_binding(),
             bin_shell=bin_shell,
             ripgrep_config=get_ripgrep_config(),
+            sandbox_dir=sandbox_dir,
         )
 
     elif platform == "linux":
@@ -779,9 +781,10 @@ class SandboxManager:
         command: str,
         bin_shell: Optional[str] = None,
         custom_config: Optional[dict] = None,
+        sandbox_dir: Optional[str] = None,
     ) -> str:
         """Wrap a command with sandbox restrictions."""
-        return await wrap_with_sandbox(command, bin_shell, custom_config)
+        return await wrap_with_sandbox(command, bin_shell, custom_config, sandbox_dir)
 
     @staticmethod
     def get_sandbox_violation_store() -> SandboxViolationStore:

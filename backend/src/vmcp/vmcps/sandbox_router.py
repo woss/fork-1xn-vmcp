@@ -18,14 +18,12 @@ logger = get_logger(__name__)
 
 router = APIRouter(prefix="/vmcps/{vmcp_id}/sandbox", tags=["Sandbox"])
 
-
 class SandboxStatusResponse(BaseModel):
     """Response model for sandbox status."""
     enabled: bool
     path: str
     venv_exists: bool
     folder_exists: bool
-
 
 class FileNode(BaseModel):
     """File node in the sandbox directory tree."""
@@ -279,11 +277,33 @@ async def delete_sandbox(
     try:
         from vmcp.vmcps.vmcp_config_manager import VMCPConfigManager
         
+        # Add sandbox-runtime-py to sys.path to allow importing SandboxManager
+        import sys
+        from pathlib import Path
+        
+        # Calculate path to sandbox-runtime-py relative to this file
+        # current file: backend/src/vmcp/vmcps/sandbox_router.py
+        # target: backend/src/sandbox-runtime-py
+        current_file = Path(__file__)
+        # Go up 3 levels: vmcp/vmcps/ -> vmcp/ -> src/
+        src_dir = current_file.parent.parent.parent
+        sandbox_runtime_path = src_dir / "sandbox-runtime-py"
+        
+        if str(sandbox_runtime_path) not in sys.path:
+            sys.path.insert(0, str(sandbox_runtime_path))
+            
+        from sandbox_runtime import SandboxManager
+        
         sandbox_service = get_sandbox_service()
         vmcp_config_manager = VMCPConfigManager(user_context.user_id, vmcp_id)
         vmcp_config = vmcp_config_manager.load_vmcp_config()
         
         logger.info(f"Deleting sandbox for vMCP: {vmcp_id}")
+
+        # Reset global sandbox manager to release file locks (especially on macOS/Windows)
+        # This stops proxy servers and ensures clean deletion
+        logger.info("[DEBUG] Calling SandboxManager.reset() to release resources")
+        await SandboxManager.reset()
         
         # Delete the sandbox directory
         success = sandbox_service.delete_sandbox(vmcp_id)
@@ -294,20 +314,21 @@ async def delete_sandbox(
                 detail="Failed to delete sandbox directory. Check logs for details."
             )
         
-        # Set sandbox_enabled to False in metadata
+        # Set sandbox_enabled and progressive_discovery_enabled to False in metadata
         try:
             if vmcp_config:
                 metadata = getattr(vmcp_config, 'metadata', {}) or {}
                 if not isinstance(metadata, dict):
                     metadata = {}
                 metadata['sandbox_enabled'] = False
+                metadata['progressive_discovery_enabled'] = False
                 
                 # Update the config with new metadata
                 vmcp_config_manager.update_vmcp_config(
                     vmcp_id=vmcp_id,
                     metadata=metadata
                 )
-                logger.info(f"Set sandbox_enabled to False for vMCP {vmcp_id}")
+                logger.info(f"Disabled sandbox and progressive discovery for vMCP {vmcp_id}")
         except Exception as e:
             logger.warning(f"Failed to update metadata after deleting sandbox for {vmcp_id}: {e}")
             # Don't fail the request if metadata update fails

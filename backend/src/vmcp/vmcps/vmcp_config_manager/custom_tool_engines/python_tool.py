@@ -115,7 +115,8 @@ async def execute_python_tool(
     arguments: Dict[str, Any],
     environment_variables: Dict[str, Any],
     tool_as_prompt: bool = False,
-    vmcp_id: Optional[str] = None
+    vmcp_id: Optional[str] = None,
+    skip_sandbox: bool = False
 ):
     """
     Execute a Python tool with secure sandboxing.
@@ -137,7 +138,7 @@ async def execute_python_tool(
             type="text",
             text="No Python code provided for this tool",
             annotations=None,
-            meta=None
+            _meta=None
         )
         return CallToolResult(
             content=[error_content],
@@ -197,14 +198,49 @@ async def execute_python_tool(
     script_path = tool_meta.get('script_path')
     
     # For sandbox-discovered tools, execute in sandbox environment
-    if is_sandbox_discovered and vmcp_id and script_path:
+    if is_sandbox_discovered:
+        logger.info(f"🏖️  PYTHON_TOOL: Detected sandbox-discovered tool - script_path={script_path}, vmcp_id={vmcp_id}")
+        
+        # If vmcp_id is not provided, try to get it from tool metadata
+        if not vmcp_id:
+            vmcp_id = tool_meta.get('vmcp_id')
+            logger.info(f"🏖️  PYTHON_TOOL: Extracted vmcp_id from tool metadata: {vmcp_id}")
+        
+        if not script_path:
+            error_content = TextContent(
+                type="text",
+                text=f"Sandbox tool missing script_path in metadata: {tool_meta}",
+                annotations=None,
+                _meta=None
+            )
+            return CallToolResult(
+                content=[error_content],
+                structuredContent=None,
+                isError=True
+            )
+        
+        if not vmcp_id:
+            error_content = TextContent(
+                type="text",
+                text=f"Sandbox tool missing vmcp_id. Tool metadata: {tool_meta}. Please ensure the tool is called with vmcp_id context.",
+                annotations=None,
+                _meta=None
+            )
+            return CallToolResult(
+                content=[error_content],
+                structuredContent=None,
+                isError=True
+            )
+        
+        logger.info(f"🏖️  PYTHON_TOOL: Executing sandbox tool via execute_sandbox_discovered_tool")
         from .sandbox_tool import execute_sandbox_discovered_tool
         return await execute_sandbox_discovered_tool(
             vmcp_id=vmcp_id,
             script_path=script_path,
             arguments=converted_arguments,
             environment_variables=environment_variables,
-            tool_as_prompt=tool_as_prompt
+            tool_as_prompt=tool_as_prompt,
+            skip_sandbox=skip_sandbox
         )
 
     # Determine which Python executable to use
@@ -356,7 +392,7 @@ else:
             type="text",
             text=result_text,
             annotations=None,
-            meta=None
+            _meta=None
         )
 
         if tool_as_prompt:
@@ -388,7 +424,7 @@ else:
             type="text",
             text=f"Python tool execution timed out ({timeout_seconds} seconds)",
             annotations=None,
-            meta=None
+            _meta=None
         )
         return CallToolResult(
             content=[error_content],
@@ -400,7 +436,7 @@ else:
             type="text",
             text=f"Error executing Python tool: {str(e)}",
             annotations=None,
-            meta=None
+            _meta=None
         )
         return CallToolResult(
             content=[error_content],

@@ -307,7 +307,7 @@ def wrap_command_with_sandbox_linux(
                 bwrap_args.extend(
                     [
                         "--setenv",
-                        "CLAUDE_CODE_HOST_HTTP_PROXY_PORT",
+                        "SANDBOX_HOST_HTTP_PROXY_PORT",
                         str(http_proxy_port),
                     ]
                 )
@@ -315,7 +315,7 @@ def wrap_command_with_sandbox_linux(
                 bwrap_args.extend(
                     [
                         "--setenv",
-                        "CLAUDE_CODE_HOST_SOCKS_PROXY_PORT",
+                        "SANDBOX_HOST_SOCKS_PROXY_PORT",
                         str(socks_proxy_port),
                     ]
                 )

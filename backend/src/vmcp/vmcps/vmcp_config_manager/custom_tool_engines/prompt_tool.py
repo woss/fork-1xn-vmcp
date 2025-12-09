@@ -98,7 +98,8 @@ async def call_custom_tool(
     execute_http_tool_func,
     parse_vmcp_text_func,
     arguments: Optional[Dict[str, Any]] = None,
-    tool_as_prompt: bool = False
+    tool_as_prompt: bool = False,
+    skip_sandbox: bool = False
 ):
     """
     Call a custom tool with appropriate execution engine based on tool type.
@@ -145,7 +146,7 @@ async def call_custom_tool(
 
     if tool_type == 'python':
         logger.info(f"🔍 PROMPT_TOOL: Calling Python tool with arguments: {arguments}")
-        return await execute_python_tool_func(custom_tool, arguments, environment_variables, tool_as_prompt, vmcp_id)
+        return await execute_python_tool_func(custom_tool, arguments, environment_variables, tool_as_prompt, vmcp_id, skip_sandbox)
     elif tool_type == 'http':
         return await execute_http_tool_func(custom_tool, arguments, environment_variables, tool_as_prompt)
     else:  # prompt tool (default)

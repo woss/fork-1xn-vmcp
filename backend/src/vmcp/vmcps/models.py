@@ -186,11 +186,13 @@ class VMCPToolCallRequest(VMCPBaseRequest):
     - tool_name: Name of the tool to execute
     - arguments: Tool-specific parameters as key-value pairs
     - progress_token: Optional progress token from downstream client for progress notifications
+    - skip_sandbox: Skip sandbox wrapping (used when called from within sandbox via SDK)
     """
 
     tool_name: str = Field(..., description="Name of the tool to call (without server prefix)")
     arguments: Dict[str, Any] = Field(default_factory=dict, description="Tool arguments/parameters as a dictionary")
     progress_token: Optional[Union[str, int]] = Field(default=None, description="Progress token from downstream client for forwarding progress notifications")
+    skip_sandbox: bool = Field(default=False, description="Skip sandbox wrapping for sandbox-discovered tools (set by SDK when calling from within sandbox)")
     
     @validator('tool_name')
     def validate_tool_name(cls, v):

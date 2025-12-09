@@ -516,6 +516,7 @@ async def wrap_command_with_sandbox_macos(
     write_config: Optional[FsWriteRestrictionConfig] = None,
     bin_shell: Optional[str] = None,
     ripgrep_config: Optional[RipgrepConfig] = None,
+    sandbox_dir: Optional[str] = None,
 ) -> str:
     """Wrap command with macOS sandbox."""
     # Determine if we have restrictions to apply
@@ -544,6 +545,16 @@ async def wrap_command_with_sandbox_macos(
         log_tag=log_tag,
         ripgrep_config=ripgrep_config,
     )
+
+    if sandbox_dir:
+        try:
+            profile_path = Path(sandbox_dir) / "sandbox_profile.sb"
+            # Write profile to file
+            with open(profile_path, "w") as f:
+                f.write(profile)
+            log_for_debugging(f"[Sandbox macOS] Wrote profile to {profile_path}")
+        except Exception as e:
+            log_for_debugging(f"[Sandbox macOS] Failed to write profile: {e}", {"level": "error"})
 
     # Generate proxy environment variables
     proxy_env_vars = generate_proxy_env_vars(http_proxy_port, socks_proxy_port)

@@ -1381,7 +1381,8 @@ class VMCPConfigManager:
         self,
         tool_id: str,
         arguments: Optional[Dict[str, Any]] = None,
-        tool_as_prompt: bool = False
+        tool_as_prompt: bool = False,
+        skip_sandbox: bool = False
     ) -> CallToolResult:
         """
         Execute a custom tool by ID.
@@ -1393,6 +1394,7 @@ class VMCPConfigManager:
             tool_id: Custom tool identifier
             arguments: Optional dictionary of tool arguments
             tool_as_prompt: If True, treat tool as a prompt and return prompt-style result
+            skip_sandbox: Skip sandbox wrapping for sandbox-discovered tools (set by SDK)
 
         Returns:
             CallToolResult with tool execution results
@@ -1405,5 +1407,6 @@ class VMCPConfigManager:
             execute_http_tool_func=http_tool.execute_http_tool,
             parse_vmcp_text_func=self._parse_vmcp_text,
             arguments=arguments,
-            tool_as_prompt=tool_as_prompt
+            tool_as_prompt=tool_as_prompt,
+            skip_sandbox=skip_sandbox
         )

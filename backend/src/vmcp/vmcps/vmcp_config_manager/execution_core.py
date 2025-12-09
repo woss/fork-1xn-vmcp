@@ -128,11 +128,17 @@ async def call_tool(
 
     # Check custom tools first
     custom_tools = vmcp_config.custom_tools
+    logger.info(f"🔍 VMCP Config Manager: Checking {len(custom_tools)} custom tools")
     for tool in custom_tools:
-        if tool.get('name') == vmcp_tool_call_request.tool_name:
+        tool_name = tool.get('name')
+        tool_meta = tool.get('meta', {})
+        logger.debug(f"🔍 VMCP Config Manager: Checking custom tool '{tool_name}' - meta: {tool_meta}")
+        if tool_name == vmcp_tool_call_request.tool_name:
+            logger.info(f"✅ VMCP Config Manager: Found custom tool '{tool_name}', executing...")
             result = await call_custom_tool_func(
                 vmcp_tool_call_request.tool_name,
-                vmcp_tool_call_request.arguments
+                vmcp_tool_call_request.arguments,
+                skip_sandbox=vmcp_tool_call_request.skip_sandbox
             )
             # Add background task to log the tool call
             logger.info(f"[BACKGROUND TASK LOGGING] Adding background task to log tool call for vMCP {vmcp_id}")
@@ -384,7 +390,7 @@ async def get_prompt(
         logger.info(f"🔍 VMCP Config Manager: Checking custom tool: '{custom_tool_name}'")
         if custom_tool_name == prompt_id:
             logger.info(f"✅ VMCP Config Manager: Found custom tool '{prompt_id}'")
-            result = await call_custom_tool_func(prompt_id, arguments, tool_as_prompt=True)
+            result = await call_custom_tool_func(prompt_id, arguments, tool_as_prompt=True, skip_sandbox=False)
             logger.info(f"[BACKGROUND TASK LOGGING] Adding background task to log tool call for vMCP {vmcp_id}")
             if user_id:
                 # Fire and forget - don't await, just call and let it run

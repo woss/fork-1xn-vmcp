@@ -554,11 +554,22 @@ class StorageBase:
             # Always remove existing sandbox tools/prompts first (even if sandbox is disabled)
             # This ensures that if sandbox was previously enabled and then disabled, 
             # the tools are properly removed
+            # Remove both hardcoded sandbox tools AND dynamically discovered tools
             sandbox_tool_names = {'execute_bash', 'execute_python'}
             before_remove = len(custom_tools)
             custom_tools = [
                 tool for tool in custom_tools
-                if (tool.get('name') if isinstance(tool, dict) else getattr(tool, 'name', None)) not in sandbox_tool_names
+                if not (
+                    # Remove by name (hardcoded tools)
+                    (tool.get('name') if isinstance(tool, dict) else getattr(tool, 'name', None)) in sandbox_tool_names
+                    or
+                    # Remove by metadata source (discovered tools)
+                    (
+                        isinstance(tool, dict) and 
+                        isinstance(tool.get('meta'), dict) and 
+                        tool.get('meta', {}).get('source') == 'sandbox_discovered'
+                    )
+                )
             ]
             removed_count = before_remove - len(custom_tools)
             if removed_count > 0:
